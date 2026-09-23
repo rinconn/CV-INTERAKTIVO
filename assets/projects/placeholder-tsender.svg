@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000">
+  <!-- Placeholder: se sustituye automáticamente al subir la captura real -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffa31a"/><stop offset="1" stop-color="#ffc466"/></linearGradient>
+    <radialGradient id="glow" cx="0.2" cy="0" r="0.9"><stop offset="0" stop-color="#ffa31a" stop-opacity="0.35"/><stop offset="1" stop-color="#ffa31a" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="#07080b"/>
+  <rect width="1600" height="1000" fill="url(#glow)"/>
+  <!-- nav falsa -->
+  <rect x="80" y="56" width="150" height="28" rx="14" fill="url(#g)"/>
+  <rect x="1060" y="62" width="90" height="16" rx="8" fill="#ffffff" fill-opacity="0.14"/>
+  <rect x="1180" y="62" width="90" height="16" rx="8" fill="#ffffff" fill-opacity="0.14"/>
+  <rect x="1300" y="50" width="220" height="40" rx="20" fill="url(#g)" fill-opacity="0.9"/>
+  <!-- hero falso -->
+  <text x="800" y="330" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="150" font-weight="800" fill="url(#g)">TSender</text>
+  <rect x="520" y="400" width="560" height="22" rx="11" fill="#ffffff" fill-opacity="0.12"/>
+  <rect x="600" y="440" width="400" height="22" rx="11" fill="#ffffff" fill-opacity="0.08"/>
+  <rect x="640" y="510" width="150" height="54" rx="27" fill="url(#g)"/>
+  <rect x="810" y="510" width="150" height="54" rx="27" fill="none" stroke="#ffffff" stroke-opacity="0.2" stroke-width="2"/>
+  <!-- tarjetas falsas -->
+  <rect x="80" y="660" width="460" height="280" rx="24" fill="#ffffff" fill-opacity="0.05" stroke="#ffffff" stroke-opacity="0.08"/>
+  <rect x="570" y="660" width="460" height="280" rx="24" fill="#ffffff" fill-opacity="0.05" stroke="#ffffff" stroke-opacity="0.08"/>
+  <rect x="1060" y="660" width="460" height="280" rx="24" fill="#ffffff" fill-opacity="0.05" stroke="#ffffff" stroke-opacity="0.08"/>
+  <text x="800" y="170" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="22" fill="#ffffff" fill-opacity="0.35">Captura pendiente · 1600 × 1000</text>
+</svg>
