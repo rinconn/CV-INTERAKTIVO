@@ -50,7 +50,7 @@ La página incluye información sobre mí, mis habilidades, proyectos, experienc
 
 
 ---
-<img width="1835" height="627" alt="Captura de pantalla 2026-09-24 124150" src="https://github.com/user-attachments/assets/6a4738e1-ea74-45f5-bbca-9fc9215ad324" />
 <img width="1857" height="902" alt="Captura de pantalla 2026-09-24 115945" src="https://github.com/user-attachments/assets/30dac109-ede9-4eb3-b23a-6a1752775856" />
+<img width="1835" height="627" alt="Captura de pantalla 2026-09-24 124150" src="https://github.com/user-attachments/assets/ca90dec4-6abc-4ce0-b4af-b61b1c2badb7" />
 
-**Enrique Rincón**
+
