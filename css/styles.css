@@ -110,18 +110,7 @@ ul {
   height: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-}
-
-.nav__logo {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 1.5rem;
-  letter-spacing: 0;
-}
-
-.nav__logo span {
-  color: var(--accent);
+  justify-content: flex-end; /* menú a la derecha; la identidad (avatar) va a la izquierda del hero */
 }
 
 .nav__menu {
@@ -161,25 +150,9 @@ ul {
   transform-origin: left;
 }
 
-.nav__link--cta {
-  padding: 0.5rem 1.1rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  color: var(--text);
-  transition: border-color 0.2s, background 0.2s;
-}
-
-.nav__link--cta::after {
-  display: none;
-}
-
-.nav__link--cta:hover {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-
 .nav__toggle {
   display: none;
+  margin-left: auto; /* en móvil, el botón del menú a la derecha */
   width: 32px;
   height: 32px;
   background: none;
@@ -210,6 +183,7 @@ ul {
    ========================================================= */
 .btn {
   display: inline-flex;
+  border: 1px solid transparent; /* mismo borde en todos: los dos botones miden igual */
   align-items: center;
   gap: 0.5rem;
   padding: 0.85rem 1.6rem;
@@ -234,16 +208,6 @@ ul {
   box-shadow:
     0 0 0 4px var(--accent-soft),
     0 12px 44px -6px var(--accent-glow);
-}
-
-.btn--ghost {
-  border: 1px solid var(--border);
-  background: var(--surface);
-}
-
-.btn--ghost:hover {
-  border-color: var(--accent);
-  color: var(--accent);
 }
 
 /* =========================================================
@@ -357,6 +321,7 @@ ul {
 
 /* Avatar + estado, como la cabecera de un perfil */
 .hero__identity {
+  position: relative; /* referencia para el bocadillo del easter egg */
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -366,6 +331,8 @@ ul {
 .avatar {
   position: relative;
   flex-shrink: 0;
+  user-select: none; /* el triple click no selecciona texto */
+  cursor: pointer; /* es clicable (easter egg) */
   width: 64px;
   height: 64px;
   border-radius: 50%;
@@ -376,7 +343,7 @@ ul {
   box-shadow:
     0 0 0 3px var(--bg),
     0 0 0 5px var(--accent),
-    0 0 28px -4px var(--accent-glow);
+    0 0 18px -6px var(--accent-glow);
   transition: transform 0.4s var(--ease), box-shadow 0.4s var(--ease);
 }
 
@@ -388,6 +355,83 @@ ul {
     0 0 40px -2px var(--accent-glow);
 }
 
+/* ---------- Easter egg: triple click en el avatar → modo "Party Parrot" ---------- */
+/* Gira sin parar y cicla todos los colores (el anillo ámbar incluido) */
+.avatar--party {
+  animation:
+    party-spin 0.6s linear infinite,
+    party-hue 0.9s linear infinite;
+}
+
+@keyframes party-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes party-hue {
+  from { filter: hue-rotate(0deg) saturate(1.6); }
+  to   { filter: hue-rotate(360deg) saturate(1.6); }
+}
+
+/* Bocadillo con el mensaje, encima del avatar */
+.party-toast {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 14px);
+  padding: 0.45rem 0.9rem;
+  border-radius: 12px;
+  background: var(--bg-elev);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.8);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: toast-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.party-toast.is-leaving {
+  animation: toast-out 0.3s ease-in both;
+}
+
+/* Texto arcoíris que también va rotando de color */
+.party-toast span {
+  background: linear-gradient(90deg, #ff4d4d, #ffa31a, #ffe14d, #4dff88, #4dc3ff, #b84dff, #ff4d4d);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: rainbow-slide 1.2s linear infinite;
+}
+
+/* Flechita apuntando al avatar */
+.party-toast::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 26px;
+  width: 10px;
+  height: 10px;
+  background: var(--bg-elev);
+  border-right: 1px solid rgba(255, 255, 255, 0.16);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+  transform: translateY(-5px) rotate(45deg);
+}
+
+@keyframes toast-pop {
+  from { opacity: 0; transform: translateY(8px) scale(0.8); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes toast-out {
+  to { opacity: 0; transform: translateY(-6px) scale(0.95); }
+}
+
+@keyframes rainbow-slide {
+  to { background-position: 200% 0; }
+}
+
+
 .avatar__img,
 .avatar__fallback {
   grid-area: 1 / 1;
@@ -398,6 +442,14 @@ ul {
 
 .avatar__img {
   object-fit: cover;
+  object-position: center;
+}
+
+/* Para ilustraciones que ocupan todo el cuadrado: la figura entera dentro del círculo */
+.avatar__img--contain {
+  object-fit: contain;
+  padding: 5px;
+  background: #fff;
 }
 
 /* Iniciales que se ven mientras no haya foto (o si no carga) */
@@ -421,18 +473,50 @@ ul {
   }
 }
 
+/* Estados de disponibilidad (se elige en main.js → ESTADO_DISPONIBILIDAD).
+   Excepción deliberada a la paleta: verde y rojo solo aquí, porque tienen significado. */
+.hero__status[data-state="disponible"]    { --status: #22c55e; }
+.hero__status[data-state="ocupado"]       { --status: var(--accent); }
+.hero__status[data-state="no-disponible"] { --status: #ef4444; }
+
+.hero__status {
+  border-color: color-mix(in srgb, var(--status, var(--accent)) 28%, var(--border));
+  transition: border-color 0.4s;
+}
+
+/* Punto que "respira": se hincha y su brillo sube y baja; además suelta una onda */
 .dot {
+  position: relative;
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 0 var(--accent-glow);
-  animation: pulse 2s infinite;
+  background: var(--status, var(--accent));
+  animation: breathe 2.4s ease-in-out infinite;
 }
 
-@keyframes pulse {
-  70%  { box-shadow: 0 0 0 10px transparent; }
-  100% { box-shadow: 0 0 0 0 transparent; }
+.dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--status, var(--accent));
+  animation: ripple 2.4s ease-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% {
+    transform: scale(0.85);
+    box-shadow: 0 0 4px 0 color-mix(in srgb, var(--status, var(--accent)) 40%, transparent);
+  }
+  50% {
+    transform: scale(1.15);
+    box-shadow: 0 0 10px 2px color-mix(in srgb, var(--status, var(--accent)) 70%, transparent);
+  }
+}
+
+@keyframes ripple {
+  0%       { transform: scale(1); opacity: 0.6; }
+  70%, 100% { transform: scale(3); opacity: 0; }
 }
 
 .hero__title {

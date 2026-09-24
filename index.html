@@ -23,7 +23,8 @@
   <link href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&display=swap" rel="stylesheet" />
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.css" />
-  <link rel="stylesheet" href="css/styles.css" />
+  <!-- ?v=… obliga al navegador a descargar la versión nueva (súbelo al cambiar CSS/JS) -->
+  <link rel="stylesheet" href="css/styles.css?v=12" />
 </head>
 <body>
   <!-- Barra de progreso de scroll -->
@@ -32,8 +33,6 @@
   <!-- ===== NAV ===== -->
   <header class="nav" id="nav">
     <div class="nav__inner container">
-      <a href="#hero" class="nav__logo">ER<span>.</span></a>
-
       <button class="nav__toggle" id="navToggle" aria-label="Abrir menú" aria-expanded="false">
         <span></span><span></span>
       </button>
@@ -43,7 +42,6 @@
         <a href="#proyectos" class="nav__link">Proyectos</a>
         <a href="#experiencia" class="nav__link">Experiencia</a>
         <a href="#educacion" class="nav__link">Educación</a>
-        <a href="#contacto" class="nav__link nav__link--cta">Contacto</a>
       </nav>
     </div>
   </header>
@@ -65,11 +63,14 @@
           <!-- Foto: assets/avatar.jpg (recortada en círculo; encuadre en .avatar__img). Si no existe, se ven las iniciales -->
           <span class="avatar">
             <span class="avatar__fallback" aria-hidden="true">ER</span>
-            <img class="avatar__img" src="assets/avatar.jpg" alt="Avatar de Enrique Rincón: dos gatos juntos"
+            <!-- avatar__img--contain: muestra la figura entera. Para una foto normal, quita esa clase -->
+            <img class="avatar__img avatar__img--contain" src="assets/avatar.jpg" alt="Avatar de Enrique Rincón: Lugia en pixel art"
                  width="64" height="64" decoding="async" onerror="this.remove()" />
           </span>
-          <p class="hero__status">
-            <span class="dot"></span> Disponible para nuevos proyectos
+          <!-- El estado se cambia en js/main.js → ESTADO_DISPONIBILIDAD -->
+          <p class="hero__status" id="availability" data-state="disponible">
+            <span class="dot" aria-hidden="true"></span>
+            <span class="hero__status-text">Disponible para nuevos proyectos</span>
           </p>
         </div>
 
@@ -80,17 +81,17 @@
 
         <p class="hero__role hero__anim">
           <!-- Cambia estos roles en data-roles (separados por |) -->
-          <span class="typed" data-roles="Desarrollador Full Stack|Creador de interfaces|Amante del buen código"></span><span class="cursor" aria-hidden="true">|</span>
+          <span class="typed" data-roles="Frontend Developer|Backend Developer|Full Stack Developer"></span><span class="cursor" aria-hidden="true">|</span>
         </p>
 
         <p class="hero__desc hero__anim">
-          Construyo experiencias web rápidas, accesibles y cuidadas al detalle.
-          Me gusta convertir ideas en productos que la gente disfruta usar.
+          Del frontend al backend, pasando por bases de datos: React, Node.js, Spring Boot, MongoDB.
+          Construyo experiencias web accesibles y rápidas, cuidando cada detalle, incluso los que nadie nota (menos yo).
         </p>
 
         <div class="hero__actions hero__anim">
           <a href="#proyectos" class="btn btn--primary">Ver proyectos</a>
-          <a href="#contacto" class="btn btn--ghost">Contáctame</a>
+          <a href="#contacto" class="btn btn--primary">Contáctame</a>
         </div>
 
         <ul class="hero__social hero__anim">
@@ -232,6 +233,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
-  <script src="js/main.js"></script>
+  <script src="js/main.js?v=12"></script>
 </body>
 </html>

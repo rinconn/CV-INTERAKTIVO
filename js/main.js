@@ -1,3 +1,15 @@
+/* =========================================================
+   DISPONIBILIDAD — cambia solo esta línea cuando cambie tu situación.
+   Valores posibles: "disponible" | "ocupado" | "no-disponible"
+   ========================================================= */
+const ESTADO_DISPONIBILIDAD = "disponible";
+
+const ESTADOS = {
+  "disponible": "Disponible para nuevos proyectos",
+  "ocupado": "Ocupado, pero abierto a propuestas",
+  "no-disponible": "No disponible actualmente",
+};
+
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const hasGSAP = typeof window.gsap !== "undefined" && typeof window.ScrollTrigger !== "undefined";
 const animate = hasGSAP && !prefersReducedMotion;
@@ -9,6 +21,9 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!animate) document.documentElement.classList.remove("js-anim");
   else gsap.registerPlugin(ScrollTrigger);
 
+  initAvailability();
+  initConsoleEasterEgg();
+  initAvatarEasterEgg();
   initNav(); // antes que el smooth scroll: cierra el menú móvil antes de desplazar
   initSmoothScroll();
   initScrollProgress();
@@ -28,6 +43,125 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("year").textContent = new Date().getFullYear();
 });
+
+/* ---------- Badge de disponibilidad del hero (color y texto según el estado) ---------- */
+function initAvailability() {
+  const badge = document.getElementById("availability");
+  if (!badge) return;
+  if (!(ESTADO_DISPONIBILIDAD in ESTADOS)) {
+    console.warn(`ESTADO_DISPONIBILIDAD "${ESTADO_DISPONIBILIDAD}" no existe. Usa: ${Object.keys(ESTADOS).join(", ")}`);
+    return; // se queda el texto por defecto del HTML
+  }
+  badge.dataset.state = ESTADO_DISPONIBILIDAD;
+  badge.querySelector(".hero__status-text").textContent = ESTADOS[ESTADO_DISPONIBILIDAD];
+}
+
+/* ---------- Easter egg para quien abra la consola (F12) ---------- */
+// Vaquero esqueleto programando en su portátil, en una silla desvencijada, para la consola: SVG de una sola línea.
+// "currentColor" se sustituye por el color de acento al convertirlo en imagen.
+const COWBOY_SVG = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 110 130" fill="none" stroke="currentColor" stroke-width="3"
+     stroke-linecap="round" stroke-linejoin="round">
+  <!-- silla: respaldo, asiento torcido, patas (una doblada) y travesaños rotos -->
+  <path d="M22 50 L27 124" />
+  <path d="M14 53 L18 92" />
+  <path d="M15 64 L25 63" />
+  <path d="M16 76 L21 78" />
+  <path d="M20 92 L66 96" />
+  <path d="M30 94 L33 124" />
+  <path d="M64 96 L67 110 L63 124" />
+  <path d="M28 110 L44 108 M52 107 L60 106" />
+  <!-- sombrero -->
+  <path d="M24 30 Q42 37 62 28" />
+  <path d="M32 31 Q33 17 42 20 Q51 17 53 29" />
+  <!-- calavera -->
+  <circle cx="43" cy="40" r="8" />
+  <circle cx="40" cy="40" r="1.6" fill="currentColor" stroke="none" />
+  <circle cx="46.5" cy="40" r="1.6" fill="currentColor" stroke="none" />
+  <path d="M39 46.5 L47 46.5" />
+  <!-- columna y costillas -->
+  <path d="M42 48 Q39 70 43 91" />
+  <path d="M34 58 Q42 62 50 57" />
+  <path d="M35 65 Q42 69 49 64" />
+  <path d="M36 72 Q42 75 48 71" />
+  <!-- piernas: fémur, tibia y pie -->
+  <path d="M43 91 L74 88 L78 118 L90 120" />
+  <path d="M44 94 L68 97 L70 121 L80 123" />
+  <!-- portátil sobre las rodillas: teclado, pantalla inclinada y </> -->
+  <path d="M50 86.5 L82 84.5" />
+  <path d="M72 85 L78 61 L91 60 L82 84.5" stroke-width="2.5" />
+  <path d="M79.5 69 L77.5 72 L79.5 75 M82.4 68.5 L81.2 75.5 M84 69 L86 72 L84 75" stroke-width="1.4" />
+  <!-- brazos tecleando -->
+  <path d="M41 55 L47 74 L62 84" />
+  <path d="M43 56 L52 72 L70 83" />
+  <!-- suelo -->
+  <path d="M6 126 L104 126" stroke-width="2" opacity="0.5" />
+</svg>`;
+
+function initConsoleEasterEgg() {
+  const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#ffa31a";
+  const art = [
+    "",
+    "  ██████  ██████  ",
+    "  ██      ██   ██ ",
+    "  █████   ██████  ",
+    "  ██      ██   ██ ",
+    "  ██████  ██   ██ ",
+    "",
+  ].join("\n");
+
+  console.log(
+    `%c${art}`,
+    `color: ${accent}; font-family: monospace; font-size: 14px; font-weight: bold; line-height: 1.1;`
+  );
+
+  // Imagen en la consola: un %c con el SVG como fondo (data URI) y padding para darle tamaño
+  const cowboy = encodeURIComponent(COWBOY_SVG.trim().replaceAll("currentColor", accent));
+  console.log(
+    "%c ",
+    `font-size: 1px; padding: 65px 55px; background: url("data:image/svg+xml,${cowboy}") center / contain no-repeat;`
+  );
+
+  console.log(
+    "%cVaya, parece que no eres el único que ha pasado por aquí...",
+    "font-size: 13px; font-style: italic; line-height: 1.6; color: #b9b9c0;"
+  );
+}
+
+/* ---------- Easter egg: triple click en el avatar → "Party Parrot" ---------- */
+function initAvatarEasterEgg() {
+  const avatar = document.querySelector(".avatar");
+  if (!avatar) return;
+  const DURATION = 3500;   // ms que dura la fiesta
+  const CLICK_GAP = 1500;  // ms máximos entre un click y el siguiente
+  let partying = false;
+  let clicks = 0;
+  let lastClick = 0;
+
+  avatar.addEventListener("click", () => {
+    if (partying) return;
+    const now = performance.now();
+    clicks = now - lastClick > CLICK_GAP ? 1 : clicks + 1; // si pasa mucho rato, vuelve a contar
+    lastClick = now;
+    if (clicks < 3) return;
+    clicks = 0;
+    partying = true;
+
+    avatar.classList.add("avatar--party");
+    const toast = document.createElement("div");
+    toast.className = "party-toast";
+    toast.setAttribute("role", "status");
+    toast.innerHTML = "<span>¡Qué curiosete eres, colega!</span>";
+    avatar.parentElement.append(toast);
+
+    setTimeout(() => {
+      avatar.classList.remove("avatar--party");
+      toast.classList.add("is-leaving");
+      toast.addEventListener("animationend", () => toast.remove(), { once: true });
+      partying = false;
+    }, DURATION);
+  });
+}
 
 /* ---------- Smooth scroll con Lenis, sincronizado con GSAP ---------- */
 function initSmoothScroll() {
@@ -137,14 +271,20 @@ function initHeroIntro() {
   const title = document.querySelector("[data-split]");
   const chars = splitChars(title);
 
-  // El primer rol aparece ya escrito y luego arranca la máquina de escribir
-  const typed = document.querySelector(".typed");
-  typed.textContent = typed.dataset.roles.split("|")[0];
-
   const show = { autoAlpha: 1, y: 0 };
+
+  // Párrafo, botones e iconos entran cuando la máquina de escribir termina la primera frase
+  const revealRest = () =>
+    gsap
+      .timeline({ defaults: { ease: "expo.out" } })
+      .fromTo(".hero__desc", { autoAlpha: 0, y: 30 }, { ...show, duration: 1 })
+      .fromTo([".hero__actions", ".hero__social"], { autoAlpha: 0, y: 30 }, { ...show, duration: 1, stagger: 0.12 }, "-=0.7")
+      .fromTo(".hero__scroll", { autoAlpha: 0, y: -10 }, { autoAlpha: 0.6, y: 0, duration: 0.8 }, "-=0.5");
+
+  // Al acabar la intro, la primera frase se escribe letra a letra
   const tl = gsap.timeline({
     defaults: { ease: "expo.out" },
-    onComplete: () => initTyped({ prefilled: true }),
+    onComplete: () => initTyped({ onFirstTyped: revealRest }),
   });
 
   tl.fromTo("#nav", { autoAlpha: 0, yPercent: -100 }, { autoAlpha: 1, yPercent: 0, duration: 1.2 }, 0.1)
@@ -155,19 +295,8 @@ function initHeroIntro() {
     .from(".avatar", { scale: 0.4, rotate: -20, duration: 1, ease: "back.out(2)", clearProps: "transform" }, 0.25)
     .set(title, { autoAlpha: 1 }, 0.35)
     .from(chars, { yPercent: 120, rotate: 10, duration: 1.2, stagger: 0.03 }, 0.35)
-    .fromTo(
-      ".hero__role",
-      { autoAlpha: 0, clipPath: "inset(0% 100% 0% 0%)" },
-      { autoAlpha: 1, clipPath: "inset(0% 0% 0% 0%)", duration: 1.1, ease: "power4.inOut" },
-      "-=0.8"
-    )
-    .fromTo(
-      [".hero__desc", ".hero__actions", ".hero__social"],
-      { autoAlpha: 0, y: 30 },
-      { ...show, duration: 1, stagger: 0.12 },
-      "-=0.6"
-    )
-    .fromTo(".hero__scroll", { autoAlpha: 0, y: -10 }, { autoAlpha: 0.6, y: 0, duration: 0.8 }, "-=0.5");
+    // la línea del rol aparece vacía (solo el cursor) y enseguida empieza a escribirse
+    .fromTo(".hero__role", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4 }, "-=0.7");
 }
 
 /* ---------- Globo de puntos del hero + bola de plasma (canvas, sin librerías) ---------- */
@@ -617,7 +746,7 @@ function initTooltips() {
 }
 
 /* ---------- Efecto máquina de escribir en el hero ---------- */
-function initTyped({ prefilled = false, delay = 0 } = {}) {
+function initTyped({ delay = 0, onFirstTyped } = {}) {
   const el = document.querySelector(".typed");
   if (!el) return;
 
@@ -625,12 +754,13 @@ function initTyped({ prefilled = false, delay = 0 } = {}) {
 
   if (prefersReducedMotion) {
     el.textContent = roles[0];
+    onFirstTyped?.();
     return;
   }
 
   let roleIndex = 0;
-  let charIndex = prefilled ? roles[0].length : 0;
-  let deleting = prefilled;
+  let charIndex = 0;
+  let deleting = false;
 
   const tick = () => {
     const current = roles[roleIndex];
@@ -640,6 +770,11 @@ function initTyped({ prefilled = false, delay = 0 } = {}) {
     let next = deleting ? 40 : 90;
 
     if (!deleting && charIndex === current.length) {
+      // aviso (una sola vez) de que la primera frase ya está escrita
+      if (onFirstTyped) {
+        onFirstTyped();
+        onFirstTyped = null;
+      }
       next = 1800;
       deleting = true;
     } else if (deleting && charIndex === 0) {
@@ -651,8 +786,7 @@ function initTyped({ prefilled = false, delay = 0 } = {}) {
     setTimeout(tick, next);
   };
 
-  // Si ya está escrito, se deja leer un momento antes de borrar
-  setTimeout(tick, prefilled ? 1800 : delay);
+  setTimeout(tick, delay);
 }
 
 /* ---------- Resalta el link de la sección visible ---------- */
