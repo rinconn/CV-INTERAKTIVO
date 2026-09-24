@@ -37,8 +37,13 @@
 }
 
 html {
-  scroll-behavior: smooth;
   scroll-padding-top: var(--nav-h);
+}
+
+/* Scroll suave nativo solo si Lenis no está activo (sin JS o movimiento reducido).
+   Con Lenis, los dos scrolls suaves a la vez se pelean y el scroll se atasca en los extremos. */
+html:not(.lenis) {
+  scroll-behavior: smooth;
 }
 
 body {
@@ -752,6 +757,53 @@ ul {
 /* =========================================================
    PROYECTOS
    ========================================================= */
+/* Cinta de luz ámbar en arco detrás de las cards (estilo nestjs.com) */
+#proyectos {
+  position: relative;
+  isolation: isolate;  /* la cinta (z-index: -1) queda detrás de las cards pero delante del fondo */
+  overflow: clip;      /* el desenfoque no crea scroll ni cambia la altura de la página */
+}
+
+.projects-glow {
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  top: 50%;
+  width: min(1500px, 150vw);
+  aspect-ratio: 3 / 2;
+  translate: -50% -50%;
+  opacity: 0.6; /* visible sin competir con las cards (están delante y son opacas) */
+  pointer-events: none;
+  transform-origin: 50% 75%;
+  will-change: transform, opacity;
+  animation: glow-breathe 9s ease-in-out infinite alternate, glow-sway 26s ease-in-out infinite alternate;
+}
+
+.projects-glow svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* Respiración: el brillo sube y baja y la cinta se expande un poco */
+@keyframes glow-breathe {
+  from { opacity: 0.5;  scale: 0.97; }
+  to   { opacity: 0.78; scale: 1.03; }
+}
+
+/* Balanceo lento, como si la cinta girase sobre sí misma */
+@keyframes glow-sway {
+  from { rotate: -7deg; }
+  to   { rotate: 7deg; }
+}
+
+@media (max-width: 760px) {
+  .projects-glow {
+    width: 240vw;
+    top: 45%;
+  }
+}
+
 .projects {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

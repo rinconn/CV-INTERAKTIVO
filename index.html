@@ -24,7 +24,7 @@
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.css" />
   <!-- ?v=… obliga al navegador a descargar la versión nueva (súbelo al cambiar CSS/JS) -->
-  <link rel="stylesheet" href="css/styles.css?v=20" />
+  <link rel="stylesheet" href="css/styles.css?v=22" />
 </head>
 <body>
   <!-- Barra de progreso de scroll -->
@@ -170,6 +170,42 @@
 
     <!-- ===== PROYECTOS ===== -->
     <section class="section" id="proyectos">
+      <!-- Cinta de luz ámbar en arco detrás de las cards (decorativa) -->
+      <div class="projects-glow" aria-hidden="true">
+        <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <!-- el trazo se desvanece hacia los extremos -->
+            <linearGradient id="glowFade" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#ffa31a" stop-opacity="0" />
+              <stop offset="0.25" stop-color="#ffa31a" />
+              <stop offset="0.75" stop-color="#ffa31a" />
+              <stop offset="1" stop-color="#ffa31a" stop-opacity="0" />
+            </linearGradient>
+            <!-- capa dorada intermedia y núcleo blanco dorado: segundo tono de contraste -->
+            <linearGradient id="glowGold" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0.08" stop-color="#ffc766" stop-opacity="0" />
+              <stop offset="0.5" stop-color="#ffd27a" />
+              <stop offset="0.92" stop-color="#ffc766" stop-opacity="0" />
+            </linearGradient>
+            <linearGradient id="glowCore" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0.12" stop-color="#fff4dc" stop-opacity="0" />
+              <stop offset="0.5" stop-color="#fffaf0" />
+              <stop offset="0.88" stop-color="#fff4dc" stop-opacity="0" />
+            </linearGradient>
+            <filter id="blurWide" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="45" /></filter>
+            <filter id="blurMid" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="14" /></filter>
+            <filter id="blurGold" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5" /></filter>
+            <filter id="blurCore" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.5" /></filter>
+          </defs>
+          <!-- arco principal (más bajo que antes): halo ámbar, cuerpo ámbar, capa dorada y núcleo blanco -->
+          <path d="M -40 760 C 200 260, 1000 260, 1240 760" fill="none" stroke="url(#glowFade)" stroke-width="140" stroke-linecap="round" filter="url(#blurWide)" opacity="0.6" />
+          <path d="M -40 760 C 200 260, 1000 260, 1240 760" fill="none" stroke="url(#glowFade)" stroke-width="40" stroke-linecap="round" filter="url(#blurMid)" opacity="0.9" />
+          <path d="M -40 760 C 200 260, 1000 260, 1240 760" fill="none" stroke="url(#glowGold)" stroke-width="14" stroke-linecap="round" filter="url(#blurGold)" />
+          <path d="M -40 760 C 200 260, 1000 260, 1240 760" fill="none" stroke="url(#glowCore)" stroke-width="5" stroke-linecap="round" filter="url(#blurCore)" />
+          <!-- segundo arco interior, más tenue: da la sensación de espiral -->
+          <path d="M 140 800 C 320 420, 880 420, 1060 800" fill="none" stroke="url(#glowFade)" stroke-width="60" stroke-linecap="round" filter="url(#blurMid)" opacity="0.4" />
+        </svg>
+      </div>
       <div class="container">
         <h2 class="section__title reveal"><span class="section__num">02.</span> Proyectos</h2>
 
@@ -281,6 +317,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
-  <script src="js/main.js?v=20"></script>
+  <script src="js/main.js?v=22"></script>
 </body>
 </html>
