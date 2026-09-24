@@ -566,13 +566,12 @@ ul {
   margin-top: 2.5rem;
 }
 
-.hero__social {
+.social-list {
   display: flex;
   gap: 1rem;
-  margin-top: 3rem;
 }
 
-.hero__social a {
+.social-list a {
   display: grid;
   place-items: center;
   width: 44px;
@@ -583,20 +582,83 @@ ul {
   transition: transform 0.25s var(--ease), border-color 0.25s;
 }
 
-.hero__social a:hover {
+.social-list a:hover {
   transform: translateY(-3px);
   border-color: var(--accent);
 }
 
-.hero__social svg {
+.social-list svg {
   width: 20px;
   height: 20px;
   fill: var(--text-muted);
   transition: fill 0.25s;
 }
 
-.hero__social a:hover svg {
-  fill: var(--text);
+.social-list a:hover svg {
+  fill: var(--accent);
+}
+
+/* ---------- Barra lateral fija con las redes (pantallas ≥ 1200px) ---------- */
+.social-rail {
+  position: fixed;
+  left: 28px;
+  top: 50%;
+  translate: 0 -50%; /* "translate" y no "transform": GSAP anima transform sin pisar el centrado */
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Línea fina encima y debajo de los iconos */
+.social-rail::before,
+.social-rail::after {
+  content: "";
+  width: 1px;
+  height: 64px;
+  background: linear-gradient(transparent, var(--border));
+}
+
+.social-rail::after {
+  background: linear-gradient(var(--border), transparent);
+}
+
+.social-rail .social-list {
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.social-rail .social-list a:hover {
+  transform: translateX(3px); /* en vertical, el icono se desplaza hacia fuera */
+}
+
+/* Copia de los iconos dentro del menú (la rellena main.js): solo en pantallas < 1200px */
+.nav__social {
+  display: none;
+}
+
+@media (max-width: 1199px) {
+  .social-rail {
+    display: none;
+  }
+
+  .nav__social {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: 0.5rem;
+  }
+
+  .nav__social a {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .nav__social svg {
+    width: 17px;
+    height: 17px;
+  }
 }
 
 .hero__scroll {
@@ -1039,6 +1101,182 @@ ul {
 /* Web3.py no está en Simple Icons: se usa el logo de Ethereum, la red con la que trabaja */
 .tech-icon--web3py    { --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/ethereum.svg"); }
 
+.tech-icon--html       { --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/html5.svg"); }
+.tech-icon--css        { --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/css.svg"); }
+.tech-icon--javascript { --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/javascript.svg"); }
+.tech-icon--angular    { --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/angular.svg"); }
+.tech-icon--springboot { --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/springboot.svg"); }
+.tech-icon--mongodb    { --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/mongodb.svg"); }
+.tech-icon--git        { --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/git.svg"); }
+.tech-icon--github     { --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/github.svg"); }
+/* SQL no tiene logo propio en Simple Icons: icono genérico de base de datos */
+.tech-icon--sql        { --icon: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27%3E%3Cpath d=%27M12 2C7 2 3 3.8 3 6v12c0 2.2 4 4 9 4s9-1.8 9-4V6c0-2.2-4-4-9-4zm0 2c4.4 0 7 1.4 7 2s-2.6 2-7 2-7-1.4-7-2 2.6-2 7-2zm7 14c0 .6-2.6 2-7 2s-7-1.4-7-2v-3.1c1.8 1.1 4.3 1.6 7 1.6s5.2-.5 7-1.6V18zm0-6c0 .6-2.6 2-7 2s-7-1.4-7-2V8.9c1.8 1.1 4.3 1.6 7 1.6s5.2-.5 7-1.6V12z%27/%3E%3C/svg%3E"); }
+
+/* =========================================================
+   SKILLS
+   ========================================================= */
+/* Carrusel infinito: la pista contiene la lista dos veces y se desplaza la mitad */
+.marquee {
+  overflow: hidden;
+  padding-block: 3.25rem 0.75rem; /* hueco arriba para el tooltip (overflow: hidden lo recortaría) */
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+}
+
+.marquee__track {
+  display: flex;
+  width: max-content;
+  animation: marquee 44s linear infinite; /* más tarjetas → más duración, misma velocidad */
+}
+
+.marquee:hover .marquee__track {
+  animation-play-state: paused; /* se detiene al pasar el ratón */
+}
+
+.marquee__list {
+  display: flex;
+  gap: 1.25rem;
+  padding-right: 1.25rem; /* mismo hueco entre las dos copias que entre tarjetas */
+}
+
+@keyframes marquee {
+  to { transform: translateX(-50%); }
+}
+
+/* Badges estilo "Skill Icons": cada tecnología con su color de marca de fondo, siempre visible.
+   --brand: color de la tecnología (fondo, brillo y borde del tooltip)
+   --on-brand: color del texto y del logo, elegido por contraste (blanco u oscuro)
+   Excepción deliberada a la paleta ámbar: solo en estas tarjetas. */
+.skill {
+  position: relative; /* referencia para el tooltip */
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 1rem 1.5rem;
+  border-radius: 16px;
+  background: var(--brand-bg, var(--brand, var(--bg-soft)));
+  border: 1px solid transparent;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--on-brand, #fff);
+  white-space: nowrap;
+  box-shadow: 0 6px 18px -10px rgba(0, 0, 0, 0.8);
+  transition: box-shadow 0.3s, transform 0.3s var(--ease), filter 0.3s;
+}
+
+.skill:hover {
+  transform: translateY(-4px);
+  filter: brightness(1.08);
+  box-shadow: 0 12px 34px -8px color-mix(in srgb, var(--brand, var(--accent)) 70%, transparent);
+}
+
+/* Tooltip de cada tecnología: mismo estilo que el de los badges de proyecto,
+   con el borde y la flecha en el color de la tecnología */
+.skill .tip {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 0.72rem;
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--brand, var(--accent)) 60%, var(--border));
+}
+
+.skill .tip::after {
+  border-right-color: color-mix(in srgb, var(--brand, var(--accent)) 60%, var(--border));
+  border-bottom-color: color-mix(in srgb, var(--brand, var(--accent)) 60%, var(--border));
+}
+
+.skill:hover .tip {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* Spring Boot y MongoDB se alejan a propósito de su verde oficial para que todos se distingan */
+.skill--html       { --brand: #e34f26; }
+.skill--css        { --brand: #1572b6; }
+.skill--javascript { --brand: #f7df1e; --on-brand: #1a1a1a; }
+.skill--react      { --brand: #22d3ee; --on-brand: #0b1a1f; }
+.skill--angular    { --brand: #dd0031; }
+.skill--springboot { --brand: #9333ea; }
+.skill--node       { --brand: #3c873a; }
+.skill--mongodb    { --brand: #eab308; --on-brand: #1a1405; }
+.skill--sql        { --brand: #1e3a8a; }
+.skill--git        { --brand: #f97316; --on-brand: #1f0e02; }
+/* GitHub: fondo gris oscuro con texto blanco; --brand (claro) se usa en el brillo y el tooltip */
+.skill--github     { --brand: #e6edf3; --brand-bg: #24292f; border-color: rgba(255, 255, 255, 0.18); }
+
+.skill__icon {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  background-color: currentColor;
+  -webkit-mask: var(--icon) center / contain no-repeat;
+  mask: var(--icon) center / contain no-repeat;
+}
+
+/* Soft skills: bloque secundario, más discreto */
+.soft-skills {
+  margin-top: 2.5rem;
+  text-align: center;
+}
+
+.soft-skills__label {
+  margin-bottom: 0.8rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.soft-skills__list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+/* Cada soft skill como una tarjeta pequeña, en la línea de las de tecnologías */
+.soft-skills__list li {
+  padding: 0.6rem 1.15rem;
+  border-radius: 12px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: default;
+  transition: color 0.25s, background 0.25s, border-color 0.25s, box-shadow 0.3s, transform 0.3s var(--ease);
+}
+
+.soft-skills__list li:hover {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: 0 6px 20px -8px var(--accent-glow);
+  transform: translateY(-3px);
+}
+
+@media (max-width: 768px) {
+  .skill {
+    padding: 0.8rem 1.1rem;
+    font-size: 0.95rem;
+  }
+
+  .skill__icon {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+/* Con movimiento reducido: sin desplazamiento, una sola lista que se ajusta en filas */
+@media (prefers-reduced-motion: reduce) {
+  .marquee { -webkit-mask-image: none; mask-image: none; }
+  .marquee__track { width: auto; animation: none; }
+  .marquee__list { flex-wrap: wrap; padding-right: 0; }
+  .marquee__list[aria-hidden="true"] { display: none; }
+}
+
 .project-card__links {
   display: flex;
   gap: 1.25rem;
@@ -1069,6 +1307,7 @@ ul {
    main.js la quita y todo se ve sin animación.
    ========================================================= */
 .js-anim .nav,
+.js-anim .social-rail,
 .js-anim .reveal,
 .js-anim .hero__anim {
   visibility: hidden;
@@ -1115,8 +1354,31 @@ ul {
     pointer-events: auto;
   }
 
+  /* El desenfoque del nav haría que el menú (fixed) se midiera respecto al nav y no a la pantalla */
+  .nav:has(.nav__menu.is-open) {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
   .nav__link {
     font-size: 1.4rem;
+  }
+
+  /* iconos de redes dentro del menú desplegable */
+  .nav__social {
+    margin: 0.5rem 0 0;
+    gap: 1rem;
+  }
+
+  .nav__social a {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+  }
+
+  .nav__social svg {
+    width: 22px;
+    height: 22px;
   }
 
   .blob--1 { width: 300px; height: 300px; }

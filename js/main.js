@@ -22,6 +22,7 @@ document.addEventListener("DOMContentLoaded", () => {
   else gsap.registerPlugin(ScrollTrigger);
 
   initAvailability();
+  initSocialInNav(); // antes que initNav, para que los iconos copiados también cierren el menú móvil
   initConsoleEasterEgg();
   initAvatarEasterEgg();
   initNav(); // antes que el smooth scroll: cierra el menú móvil antes de desplazar
@@ -163,6 +164,14 @@ function initAvatarEasterEgg() {
   });
 }
 
+/* ---------- Redes: copia los enlaces de la barra lateral al menú (se ven en < 1200px) ---------- */
+function initSocialInNav() {
+  const target = document.querySelector(".nav__social");
+  const links = document.querySelectorAll(".social-rail a");
+  if (!target) return;
+  links.forEach((link) => target.append(link.cloneNode(true)));
+}
+
 /* ---------- Smooth scroll con Lenis, sincronizado con GSAP ---------- */
 function initSmoothScroll() {
   if (prefersReducedMotion || typeof window.Lenis === "undefined") return;
@@ -278,7 +287,8 @@ function initHeroIntro() {
     gsap
       .timeline({ defaults: { ease: "expo.out" } })
       .fromTo(".hero__desc", { autoAlpha: 0, y: 30 }, { ...show, duration: 1 })
-      .fromTo([".hero__actions", ".hero__social"], { autoAlpha: 0, y: 30 }, { ...show, duration: 1, stagger: 0.12 }, "-=0.7")
+      .fromTo(".hero__actions", { autoAlpha: 0, y: 30 }, { ...show, duration: 1 }, "-=0.7")
+      .fromTo(".social-rail", { autoAlpha: 0, x: -24 }, { autoAlpha: 1, x: 0, duration: 1 }, "<0.1")
       .fromTo(".hero__scroll", { autoAlpha: 0, y: -10 }, { autoAlpha: 0.6, y: 0, duration: 0.8 }, "-=0.5");
 
   // Al acabar la intro, la primera frase se escribe letra a letra
@@ -287,7 +297,8 @@ function initHeroIntro() {
     onComplete: () => initTyped({ onFirstTyped: revealRest }),
   });
 
-  tl.fromTo("#nav", { autoAlpha: 0, yPercent: -100 }, { autoAlpha: 1, yPercent: 0, duration: 1.2 }, 0.1)
+  // clearProps: sin transform en el nav, el menú móvil (position: fixed) ocupa toda la pantalla
+  tl.fromTo("#nav", { autoAlpha: 0, yPercent: -100 }, { autoAlpha: 1, yPercent: 0, duration: 1.2, clearProps: "transform" }, 0.1)
     .from(".blob", { scale: 0.3, opacity: 0, duration: 2.4, stagger: 0.2, ease: "power3.out" }, 0)
     .from(".hero__globe", { opacity: 0, scale: 0.94, duration: 2.6, ease: "power2.out" }, 0.3)
     .fromTo(".hero__identity", { autoAlpha: 0, y: 20 }, { ...show, duration: 0.9 }, 0.2)
