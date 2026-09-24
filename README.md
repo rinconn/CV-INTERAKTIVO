@@ -47,11 +47,7 @@ La página incluye información sobre mí, mis habilidades, proyectos, experienc
 - Educación
 - Contacto
 
-## Web
 
-Puedes ver el CV funcionando aquí:
-
-👉 https://rinconn.github.io/CV-INTERAKTIVO/
 
 ---
 <img width="1835" height="627" alt="Captura de pantalla 2026-09-24 124150" src="https://github.com/user-attachments/assets/6a4738e1-ea74-45f5-bbca-9fc9215ad324" />
