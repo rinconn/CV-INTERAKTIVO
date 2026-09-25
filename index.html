@@ -1,13 +1,12 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Enrique Rincón — CV</title>
   <meta name="description" content="CV interactivo de Enrique Rincón." />
 
-  <!-- Oculta los elementos animados antes del primer pintado (evita parpadeo).
-       Si el usuario prefiere menos movimiento, no se oculta nada. -->
   <script>
     if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
       document.documentElement.classList.add("js-anim");
@@ -17,20 +16,21 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-  <!-- Clash Display (títulos) no está en Google Fonts: viene de Fontshare -->
+
   <link rel="preconnect" href="https://api.fontshare.com" />
   <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin />
   <link href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&display=swap" rel="stylesheet" />
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.css" />
-  <!-- ?v=… obliga al navegador a descargar la versión nueva (súbelo al cambiar CSS/JS) -->
-  <link rel="stylesheet" href="css/styles.css?v=22" />
+
+  <link rel="stylesheet" href="css/styles.css?v=24" />
 </head>
+
 <body>
-  <!-- Barra de progreso de scroll -->
+
   <div class="scroll-progress" aria-hidden="true"></div>
 
-  <!-- ===== NAV ===== -->
+
   <header class="nav" id="nav">
     <div class="nav__inner container">
       <button class="nav__toggle" id="navToggle" aria-label="Abrir menú" aria-expanded="false">
@@ -42,63 +42,73 @@
         <a href="#proyectos" class="nav__link">Proyectos</a>
         <a href="#experiencia" class="nav__link">Experiencia</a>
         <a href="#educacion" class="nav__link">Educación</a>
-        <!-- aquí se copian los iconos de redes en pantallas < 1200px (main.js) -->
+
         <div class="nav__social social-list"></div>
       </nav>
     </div>
   </header>
 
-  <!-- ===== REDES: barra lateral fija (pantallas ≥1200px). En pantallas menores main.js las copia al menú ===== -->
   <aside class="social-rail" aria-label="Redes y contacto">
     <ul class="social-list">
       <li><a href="https://github.com/rinconn" target="_blank" rel="noopener" aria-label="GitHub">
-        <svg viewBox="0 0 24 24"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z"/></svg>
-      </a></li>
-      <li><a href="https://www.linkedin.com/in/enrique-rincón-mateeva-264845363" target="_blank" rel="noopener" aria-label="LinkedIn">
-        <svg viewBox="0 0 24 24"><path d="M20.4 20.5h-3.6v-5.6c0-1.3 0-3-1.8-3s-2.1 1.4-2.1 2.9v5.7H9.3V9h3.4v1.6c.5-.9 1.6-1.8 3.4-1.8 3.6 0 4.3 2.4 4.3 5.5v6.2zM5.3 7.4a2.1 2.1 0 1 1 0-4.2 2.1 2.1 0 0 1 0 4.2zM7.1 20.5H3.5V9h3.6v11.5zM22.2 0H1.8C.8 0 0 .8 0 1.7v20.6c0 .9.8 1.7 1.8 1.7h20.4c1 0 1.8-.8 1.8-1.7V1.7C24 .8 23.2 0 22.2 0z"/></svg>
-      </a></li>
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z" />
+          </svg>
+        </a></li>
+      <li><a href="https://www.linkedin.com/in/enrique-rincón-mateeva-264845363" target="_blank" rel="noopener"
+          aria-label="LinkedIn">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M20.4 20.5h-3.6v-5.6c0-1.3 0-3-1.8-3s-2.1 1.4-2.1 2.9v5.7H9.3V9h3.4v1.6c.5-.9 1.6-1.8 3.4-1.8 3.6 0 4.3 2.4 4.3 5.5v6.2zM5.3 7.4a2.1 2.1 0 1 1 0-4.2 2.1 2.1 0 0 1 0 4.2zM7.1 20.5H3.5V9h3.6v11.5zM22.2 0H1.8C.8 0 0 .8 0 1.7v20.6c0 .9.8 1.7 1.8 1.7h20.4c1 0 1.8-.8 1.8-1.7V1.7C24 .8 23.2 0 22.2 0z" />
+          </svg>
+        </a></li>
       <li><a href="mailto:rincon.enriquemv@gmail.com" aria-label="Email">
-        <svg viewBox="0 0 24 24"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/></svg>
-      </a></li>
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z" />
+          </svg>
+        </a></li>
     </ul>
   </aside>
 
   <main>
-    <!-- ===== HERO ===== -->
+
     <section class="hero" id="hero">
       <div class="hero__bg" aria-hidden="true">
         <div class="blob blob--1"></div>
         <div class="blob blob--2"></div>
         <div class="blob blob--3"></div>
         <div class="hero__grid"></div>
-        <!-- Globo de puntos animado (lo dibuja main.js) -->
+
         <canvas class="hero__globe" id="heroGlobe"></canvas>
       </div>
 
       <div class="hero__content container">
         <div class="hero__identity hero__anim">
-          <!-- Foto: assets/avatar.jpg (recortada en círculo; encuadre en .avatar__img). Si no existe, se ven las iniciales -->
+
           <span class="avatar">
             <span class="avatar__fallback" aria-hidden="true">ER</span>
-            <!-- avatar__img--contain: muestra la figura entera. Para una foto normal, quita esa clase -->
-            <img class="avatar__img avatar__img--contain" src="assets/avatar.jpg" alt="Avatar de Enrique Rincón: Lugia en pixel art"
-                 width="64" height="64" decoding="async" onerror="this.remove()" />
+
+            <img class="avatar__img avatar__img--contain" src="assets/avatar.webp"
+              alt="Avatar de Enrique Rincón: Lugia en pixel art" width="64" height="64" decoding="async"
+              onerror="this.remove()" />
           </span>
-          <!-- El estado se cambia en js/main.js → ESTADO_DISPONIBILIDAD -->
+
           <p class="hero__status" id="availability" data-state="disponible">
             <span class="dot" aria-hidden="true"></span>
             <span class="hero__status-text">Disponible para nuevos proyectos</span>
           </p>
         </div>
 
-        <!-- data-split: el JS divide el texto en letras para animarlas -->
         <h1 class="hero__title hero__anim" data-split>
-          Hola, soy <span class="accent-text">Enrique Rincón</span>
+          Hola, soy <span class="accent-text glitch">Enrique Rincón</span>
         </h1>
 
         <p class="hero__role hero__anim">
-          <!-- Cambia estos roles en data-roles (separados por |) -->
-          <span class="typed" data-roles="Frontend Developer|Backend Developer|Full Stack Developer"></span><span class="cursor" aria-hidden="true">|</span>
+
+          <span class="typed" data-roles="Frontend Developer|Backend Developer|Full Stack Developer"></span><span
+            class="cursor" aria-hidden="true">|</span>
         </p>
 
         <p class="hero__desc hero__anim">
@@ -117,44 +127,64 @@
       </a>
     </section>
 
-    <!-- ===== SKILLS ===== -->
     <section class="section" id="skills">
+      <canvas class="skills__network" id="skillsNetwork" aria-hidden="true"></canvas>
       <div class="container">
         <h2 class="section__title reveal"><span class="section__num">01.</span> Skills</h2>
 
-        <!-- Carrusel infinito: la lista va dos veces para que el bucle no tenga corte -->
+
+        <!-- Dos filas en sentidos opuestos; cada lista va dos veces para que el bucle no tenga corte -->
         <div class="marquee reveal" role="region" aria-label="Tecnologías">
           <div class="marquee__track">
             <ul class="marquee__list">
-              <li class="skill skill--html"><i class="skill__icon tech-icon--html" aria-hidden="true"></i><span>HTML</span><span class="tip" role="tooltip">Usado en ScriptBay y en este CV</span></li>
-              <li class="skill skill--css"><i class="skill__icon tech-icon--css" aria-hidden="true"></i><span>CSS</span><span class="tip" role="tooltip">Usado en ScriptBay y en este CV</span></li>
+              <li class="skill skill--html"><i class="skill__icon tech-icon--html" aria-hidden="true"></i><span>HTML5</span><span class="tip" role="tooltip">Usado en ScriptBay y en este CV</span></li>
+              <li class="skill skill--css"><i class="skill__icon tech-icon--css" aria-hidden="true"></i><span>CSS3</span><span class="tip" role="tooltip">Usado en ScriptBay y en este CV</span></li>
               <li class="skill skill--javascript"><i class="skill__icon tech-icon--javascript" aria-hidden="true"></i><span>JavaScript</span><span class="tip" role="tooltip">Usado en ScriptBay y en este CV</span></li>
               <li class="skill skill--react"><i class="skill__icon tech-icon--react" aria-hidden="true"></i><span>React</span><span class="tip" role="tooltip">Usado en ScriptBay</span></li>
+              <li class="skill skill--typescript"><i class="skill__icon tech-icon--typescript" aria-hidden="true"></i><span>TypeScript</span><span class="tip" role="tooltip">Aprendido en el ciclo de DAW</span></li>
               <li class="skill skill--angular"><i class="skill__icon tech-icon--angular" aria-hidden="true"></i><span>Angular</span><span class="tip" role="tooltip">Aprendido en el ciclo de DAW</span></li>
+              <li class="skill skill--tailwind"><i class="skill__icon tech-icon--tailwind" aria-hidden="true"></i><span>Tailwind CSS</span><span class="tip" role="tooltip">Aprendido en el ciclo de DAW</span></li>
+              <li class="skill skill--bootstrap"><i class="skill__icon tech-icon--bootstrap" aria-hidden="true"></i><span>Bootstrap</span><span class="tip" role="tooltip">Aprendido en el ciclo de DAW</span></li>
+              <li class="skill skill--vite"><i class="skill__icon tech-icon--vite" aria-hidden="true"></i><span>Vite</span><span class="tip" role="tooltip">Aprendido en el ciclo de DAW</span></li>
+            </ul>
+            <ul class="marquee__list" aria-hidden="true">
+              <li class="skill skill--html"><i class="skill__icon tech-icon--html" aria-hidden="true"></i><span>HTML5</span><span class="tip" role="tooltip">Usado en ScriptBay y en este CV</span></li>
+              <li class="skill skill--css"><i class="skill__icon tech-icon--css" aria-hidden="true"></i><span>CSS3</span><span class="tip" role="tooltip">Usado en ScriptBay y en este CV</span></li>
+              <li class="skill skill--javascript"><i class="skill__icon tech-icon--javascript" aria-hidden="true"></i><span>JavaScript</span><span class="tip" role="tooltip">Usado en ScriptBay y en este CV</span></li>
+              <li class="skill skill--react"><i class="skill__icon tech-icon--react" aria-hidden="true"></i><span>React</span><span class="tip" role="tooltip">Usado en ScriptBay</span></li>
+              <li class="skill skill--typescript"><i class="skill__icon tech-icon--typescript" aria-hidden="true"></i><span>TypeScript</span><span class="tip" role="tooltip">Aprendido en el ciclo de DAW</span></li>
+              <li class="skill skill--angular"><i class="skill__icon tech-icon--angular" aria-hidden="true"></i><span>Angular</span><span class="tip" role="tooltip">Aprendido en el ciclo de DAW</span></li>
+              <li class="skill skill--tailwind"><i class="skill__icon tech-icon--tailwind" aria-hidden="true"></i><span>Tailwind CSS</span><span class="tip" role="tooltip">Aprendido en el ciclo de DAW</span></li>
+              <li class="skill skill--bootstrap"><i class="skill__icon tech-icon--bootstrap" aria-hidden="true"></i><span>Bootstrap</span><span class="tip" role="tooltip">Aprendido en el ciclo de DAW</span></li>
+              <li class="skill skill--vite"><i class="skill__icon tech-icon--vite" aria-hidden="true"></i><span>Vite</span><span class="tip" role="tooltip">Aprendido en el ciclo de DAW</span></li>
+            </ul>
+          </div>
+          <div class="marquee__track marquee__track--reverse">
+            <ul class="marquee__list">
+              <li class="skill skill--java"><i class="skill__icon tech-icon--java" aria-hidden="true"></i><span>Java</span><span class="tip" role="tooltip">Aprendido en el ciclo de DAW</span></li>
               <li class="skill skill--springboot"><i class="skill__icon tech-icon--springboot" aria-hidden="true"></i><span>Spring Boot</span><span class="tip" role="tooltip">Aprendido en el ciclo de DAW</span></li>
+              <li class="skill skill--python"><i class="skill__icon tech-icon--python" aria-hidden="true"></i><span>Python</span><span class="tip" role="tooltip">Usado en TSender</span></li>
               <li class="skill skill--node"><i class="skill__icon tech-icon--node" aria-hidden="true"></i><span>Node.js</span><span class="tip" role="tooltip">Usado en ScriptBay</span></li>
+              <li class="skill skill--mysql"><i class="skill__icon tech-icon--mysql" aria-hidden="true"></i><span>MySQL</span><span class="tip" role="tooltip">Aprendido en el ciclo de DAW</span></li>
               <li class="skill skill--mongodb"><i class="skill__icon tech-icon--mongodb" aria-hidden="true"></i><span>MongoDB</span><span class="tip" role="tooltip">Aprendido en el ciclo de DAW</span></li>
-              <li class="skill skill--sql"><i class="skill__icon tech-icon--sql" aria-hidden="true"></i><span>SQL</span><span class="tip" role="tooltip">Usado en TSender</span></li>
+              <li class="skill skill--docker"><i class="skill__icon tech-icon--docker" aria-hidden="true"></i><span>Docker</span><span class="tip" role="tooltip">Aprendido en el ciclo de DAW</span></li>
               <li class="skill skill--git"><i class="skill__icon tech-icon--git" aria-hidden="true"></i><span>Git</span><span class="tip" role="tooltip">Usado en ambos proyectos</span></li>
               <li class="skill skill--github"><i class="skill__icon tech-icon--github" aria-hidden="true"></i><span>GitHub</span><span class="tip" role="tooltip">Usado en ambos proyectos</span></li>
             </ul>
             <ul class="marquee__list" aria-hidden="true">
-              <li class="skill skill--html"><i class="skill__icon tech-icon--html" aria-hidden="true"></i><span>HTML</span><span class="tip" role="tooltip">Usado en ScriptBay y en este CV</span></li>
-              <li class="skill skill--css"><i class="skill__icon tech-icon--css" aria-hidden="true"></i><span>CSS</span><span class="tip" role="tooltip">Usado en ScriptBay y en este CV</span></li>
-              <li class="skill skill--javascript"><i class="skill__icon tech-icon--javascript" aria-hidden="true"></i><span>JavaScript</span><span class="tip" role="tooltip">Usado en ScriptBay y en este CV</span></li>
-              <li class="skill skill--react"><i class="skill__icon tech-icon--react" aria-hidden="true"></i><span>React</span><span class="tip" role="tooltip">Usado en ScriptBay</span></li>
-              <li class="skill skill--angular"><i class="skill__icon tech-icon--angular" aria-hidden="true"></i><span>Angular</span><span class="tip" role="tooltip">Aprendido en el ciclo de DAW</span></li>
+              <li class="skill skill--java"><i class="skill__icon tech-icon--java" aria-hidden="true"></i><span>Java</span><span class="tip" role="tooltip">Aprendido en el ciclo de DAW</span></li>
               <li class="skill skill--springboot"><i class="skill__icon tech-icon--springboot" aria-hidden="true"></i><span>Spring Boot</span><span class="tip" role="tooltip">Aprendido en el ciclo de DAW</span></li>
+              <li class="skill skill--python"><i class="skill__icon tech-icon--python" aria-hidden="true"></i><span>Python</span><span class="tip" role="tooltip">Usado en TSender</span></li>
               <li class="skill skill--node"><i class="skill__icon tech-icon--node" aria-hidden="true"></i><span>Node.js</span><span class="tip" role="tooltip">Usado en ScriptBay</span></li>
+              <li class="skill skill--mysql"><i class="skill__icon tech-icon--mysql" aria-hidden="true"></i><span>MySQL</span><span class="tip" role="tooltip">Aprendido en el ciclo de DAW</span></li>
               <li class="skill skill--mongodb"><i class="skill__icon tech-icon--mongodb" aria-hidden="true"></i><span>MongoDB</span><span class="tip" role="tooltip">Aprendido en el ciclo de DAW</span></li>
-              <li class="skill skill--sql"><i class="skill__icon tech-icon--sql" aria-hidden="true"></i><span>SQL</span><span class="tip" role="tooltip">Usado en TSender</span></li>
+              <li class="skill skill--docker"><i class="skill__icon tech-icon--docker" aria-hidden="true"></i><span>Docker</span><span class="tip" role="tooltip">Aprendido en el ciclo de DAW</span></li>
               <li class="skill skill--git"><i class="skill__icon tech-icon--git" aria-hidden="true"></i><span>Git</span><span class="tip" role="tooltip">Usado en ambos proyectos</span></li>
               <li class="skill skill--github"><i class="skill__icon tech-icon--github" aria-hidden="true"></i><span>GitHub</span><span class="tip" role="tooltip">Usado en ambos proyectos</span></li>
             </ul>
           </div>
         </div>
 
-        <!-- Soft skills: bloque secundario, más discreto -->
         <div class="soft-skills reveal">
           <p class="soft-skills__label">Soft skills</p>
           <ul class="soft-skills__list">
@@ -168,43 +198,12 @@
       </div>
     </section>
 
-    <!-- ===== PROYECTOS ===== -->
+
     <section class="section" id="proyectos">
-      <!-- Cinta de luz ámbar en arco detrás de las cards (decorativa) -->
+
       <div class="projects-glow" aria-hidden="true">
-        <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid meet">
-          <defs>
-            <!-- el trazo se desvanece hacia los extremos -->
-            <linearGradient id="glowFade" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0" stop-color="#ffa31a" stop-opacity="0" />
-              <stop offset="0.25" stop-color="#ffa31a" />
-              <stop offset="0.75" stop-color="#ffa31a" />
-              <stop offset="1" stop-color="#ffa31a" stop-opacity="0" />
-            </linearGradient>
-            <!-- capa dorada intermedia y núcleo blanco dorado: segundo tono de contraste -->
-            <linearGradient id="glowGold" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0.08" stop-color="#ffc766" stop-opacity="0" />
-              <stop offset="0.5" stop-color="#ffd27a" />
-              <stop offset="0.92" stop-color="#ffc766" stop-opacity="0" />
-            </linearGradient>
-            <linearGradient id="glowCore" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0.12" stop-color="#fff4dc" stop-opacity="0" />
-              <stop offset="0.5" stop-color="#fffaf0" />
-              <stop offset="0.88" stop-color="#fff4dc" stop-opacity="0" />
-            </linearGradient>
-            <filter id="blurWide" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="45" /></filter>
-            <filter id="blurMid" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="14" /></filter>
-            <filter id="blurGold" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5" /></filter>
-            <filter id="blurCore" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.5" /></filter>
-          </defs>
-          <!-- arco principal (más bajo que antes): halo ámbar, cuerpo ámbar, capa dorada y núcleo blanco -->
-          <path d="M -40 760 C 200 260, 1000 260, 1240 760" fill="none" stroke="url(#glowFade)" stroke-width="140" stroke-linecap="round" filter="url(#blurWide)" opacity="0.6" />
-          <path d="M -40 760 C 200 260, 1000 260, 1240 760" fill="none" stroke="url(#glowFade)" stroke-width="40" stroke-linecap="round" filter="url(#blurMid)" opacity="0.9" />
-          <path d="M -40 760 C 200 260, 1000 260, 1240 760" fill="none" stroke="url(#glowGold)" stroke-width="14" stroke-linecap="round" filter="url(#blurGold)" />
-          <path d="M -40 760 C 200 260, 1000 260, 1240 760" fill="none" stroke="url(#glowCore)" stroke-width="5" stroke-linecap="round" filter="url(#blurCore)" />
-          <!-- segundo arco interior, más tenue: da la sensación de espiral -->
-          <path d="M 140 800 C 320 420, 880 420, 1060 800" fill="none" stroke="url(#glowFade)" stroke-width="60" stroke-linecap="round" filter="url(#blurMid)" opacity="0.4" />
-        </svg>
+        <!-- Arco de luz pre-renderizado (antes un SVG con 4 feGaussianBlur que la GPU recalculaba) -->
+        <img src="assets/projects-glow.webp" alt="" width="720" height="520" decoding="async" />
       </div>
       <div class="container">
         <h2 class="section__title reveal"><span class="section__num">02.</span> Proyectos</h2>
@@ -217,14 +216,19 @@
                   <div class="browser__bar">
                     <span class="browser__dots"><i></i><i></i><i></i></span>
                     <span class="browser__url">
-                      <svg viewBox="0 0 24 24"><path d="M18 8h-1V6a5 5 0 0 0-10 0v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zM9 6a3 3 0 0 1 6 0v2H9V6z"/></svg>
+                      <svg viewBox="0 0 24 24">
+                        <path
+                          d="M18 8h-1V6a5 5 0 0 0-10 0v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zM9 6a3 3 0 0 1 6 0v2H9V6z" />
+                      </svg>
                       <span>github.com/rinconn/ScriptBay</span>
                     </span>
                   </div>
                   <div class="browser__screen">
-                    <!-- Captura real: assets/projects/scriptbay.webp (1600×1000). Si no existe, usa el placeholder -->
-                    <img src="assets/projects/scriptbay.webp" alt="" loading="lazy" decoding="async"
-                         onerror="this.onerror=null; this.src='assets/projects/placeholder-scriptbay.svg'" />
+
+                    <img src="assets/projects/scriptbay-800.webp"
+                      srcset="assets/projects/scriptbay-800.webp 800w, assets/projects/scriptbay-1200.webp 1200w, assets/projects/scriptbay.webp 1600w"
+                      sizes="(max-width: 760px) 80vw, 480px" alt="" loading="lazy" decoding="async"
+                      onerror="this.onerror=null; this.src='assets/projects/placeholder-scriptbay.svg'" />
                   </div>
                 </div>
               </div>
@@ -232,13 +236,19 @@
             <div class="project-card__body">
               <p class="project-card__meta">DAW · Equipo de 3</p>
               <h3 class="project-card__title">ScriptBay</h3>
-              <p class="project-card__desc">Marketplace de scripts y recursos digitales con licencias verificadas en blockchain (NFT). Proyecto de equipo (3 personas) del ciclo de DAW.</p>
+              <p class="project-card__desc">Marketplace de scripts y recursos digitales con licencias verificadas en
+                blockchain (NFT). Proyecto de equipo (3 personas) del ciclo de DAW.</p>
               <ul class="tags">
-                <li tabindex="0"><i class="tech-icon tech-icon--react" aria-hidden="true"></i>React<span class="tip" role="tooltip">Frontend con Vite</span></li>
-                <li tabindex="0"><i class="tech-icon tech-icon--node" aria-hidden="true"></i>Node.js<span class="tip" role="tooltip">Backend con Express</span></li>
-                <li tabindex="0"><i class="tech-icon tech-icon--supabase" aria-hidden="true"></i>Supabase<span class="tip" role="tooltip">Base de datos y auth</span></li>
-                <li tabindex="0"><i class="tech-icon tech-icon--solidity" aria-hidden="true"></i>Solidity<span class="tip" role="tooltip">Contratos ERC-721 en Sepolia</span></li>
-                <li tabindex="0"><i class="tech-icon tech-icon--stripe" aria-hidden="true"></i>Stripe<span class="tip" role="tooltip">Pagos con tarjeta (sandbox)</span></li>
+                <li tabindex="0"><i class="tech-icon tech-icon--react" aria-hidden="true"></i>React<span class="tip"
+                    role="tooltip">Frontend con Vite</span></li>
+                <li tabindex="0"><i class="tech-icon tech-icon--node" aria-hidden="true"></i>Node.js<span class="tip"
+                    role="tooltip">Backend con Express</span></li>
+                <li tabindex="0"><i class="tech-icon tech-icon--supabase" aria-hidden="true"></i>Supabase<span
+                    class="tip" role="tooltip">Base de datos y auth</span></li>
+                <li tabindex="0"><i class="tech-icon tech-icon--solidity" aria-hidden="true"></i>Solidity<span
+                    class="tip" role="tooltip">Contratos ERC-721 en Sepolia</span></li>
+                <li tabindex="0"><i class="tech-icon tech-icon--stripe" aria-hidden="true"></i>Stripe<span class="tip"
+                    role="tooltip">Pagos con tarjeta (sandbox)</span></li>
               </ul>
               <div class="project-card__links">
                 <a href="https://github.com/rinconn/ScriptBay" target="_blank" rel="noopener">Ver en GitHub ↗</a>
@@ -253,14 +263,19 @@
                   <div class="browser__bar">
                     <span class="browser__dots"><i></i><i></i><i></i></span>
                     <span class="browser__url">
-                      <svg viewBox="0 0 24 24"><path d="M18 8h-1V6a5 5 0 0 0-10 0v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zM9 6a3 3 0 0 1 6 0v2H9V6z"/></svg>
+                      <svg viewBox="0 0 24 24">
+                        <path
+                          d="M18 8h-1V6a5 5 0 0 0-10 0v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zM9 6a3 3 0 0 1 6 0v2H9V6z" />
+                      </svg>
                       <span>github.com/rinconn/TsenderPython</span>
                     </span>
                   </div>
                   <div class="browser__screen">
-                    <!-- Captura real: assets/projects/tsender.webp (1600×1000). Si no existe, usa el placeholder -->
-                    <img src="assets/projects/tsender.webp" alt="" loading="lazy" decoding="async"
-                         onerror="this.onerror=null; this.src='assets/projects/placeholder-tsender.svg'" />
+
+                    <img src="assets/projects/tsender-800.webp"
+                      srcset="assets/projects/tsender-800.webp 800w, assets/projects/tsender-1200.webp 1200w, assets/projects/tsender.webp 1600w"
+                      sizes="(max-width: 760px) 80vw, 480px" alt="" loading="lazy" decoding="async"
+                      onerror="this.onerror=null; this.src='assets/projects/placeholder-tsender.svg'" />
                   </div>
                 </div>
               </div>
@@ -268,13 +283,19 @@
             <div class="project-card__body">
               <p class="project-card__meta">TFG · Proyecto de equipo</p>
               <h3 class="project-card__title">TSender</h3>
-              <p class="project-card__desc">dApp Web3 para airdrops masivos de tokens, construida 100% en Python. Trabajo de Fin de Grado, proyecto de equipo.</p>
+              <p class="project-card__desc">dApp Web3 para airdrops masivos de tokens, construida 100% en Python.
+                Trabajo de Fin de Grado, proyecto de equipo.</p>
               <ul class="tags">
-                <li tabindex="0"><i class="tech-icon tech-icon--python" aria-hidden="true"></i>Python<span class="tip" role="tooltip">Lógica y backend</span></li>
-                <li tabindex="0"><i class="tech-icon tech-icon--streamlit" aria-hidden="true"></i>Streamlit<span class="tip" role="tooltip">Interfaz de usuario</span></li>
-                <li tabindex="0"><i class="tech-icon tech-icon--web3py" aria-hidden="true"></i>Web3.py<span class="tip" role="tooltip">Conexión con Ethereum</span></li>
-                <li tabindex="0"><i class="tech-icon tech-icon--solidity" aria-hidden="true"></i>Solidity<span class="tip" role="tooltip">Smart contracts ERC-20</span></li>
-                <li tabindex="0"><i class="tech-icon tech-icon--sqlite" aria-hidden="true"></i>SQLite<span class="tip" role="tooltip">Historial de transacciones</span></li>
+                <li tabindex="0"><i class="tech-icon tech-icon--python" aria-hidden="true"></i>Python<span class="tip"
+                    role="tooltip">Lógica y backend</span></li>
+                <li tabindex="0"><i class="tech-icon tech-icon--streamlit" aria-hidden="true"></i>Streamlit<span
+                    class="tip" role="tooltip">Interfaz de usuario</span></li>
+                <li tabindex="0"><i class="tech-icon tech-icon--web3py" aria-hidden="true"></i>Web3.py<span class="tip"
+                    role="tooltip">Conexión con Ethereum</span></li>
+                <li tabindex="0"><i class="tech-icon tech-icon--solidity" aria-hidden="true"></i>Solidity<span
+                    class="tip" role="tooltip">Smart contracts ERC-20</span></li>
+                <li tabindex="0"><i class="tech-icon tech-icon--sqlite" aria-hidden="true"></i>SQLite<span class="tip"
+                    role="tooltip">Historial de transacciones</span></li>
               </ul>
               <div class="project-card__links">
                 <a href="https://github.com/rinconn/TsenderPython" target="_blank" rel="noopener">Ver en GitHub ↗</a>
@@ -285,7 +306,7 @@
       </div>
     </section>
 
-    <!-- ===== EXPERIENCIA ===== -->
+
     <section class="section" id="experiencia">
       <div class="container">
         <h2 class="section__title reveal"><span class="section__num">03.</span> Experiencia</h2>
@@ -293,7 +314,6 @@
       </div>
     </section>
 
-    <!-- ===== EDUCACIÓN ===== -->
     <section class="section" id="educacion">
       <div class="container">
         <h2 class="section__title reveal"><span class="section__num">04.</span> Educación</h2>
@@ -301,7 +321,7 @@
       </div>
     </section>
 
-    <!-- ===== CONTACTO ===== -->
+
     <section class="section" id="contacto">
       <div class="container">
         <h2 class="section__title reveal"><span class="section__num">05.</span> Contacto</h2>
@@ -317,6 +337,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
-  <script src="js/main.js?v=22"></script>
+  <script src="js/main.js?v=24"></script>
 </body>
+
 </html>

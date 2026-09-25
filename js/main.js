@@ -30,7 +30,10 @@ document.addEventListener("DOMContentLoaded", () => {
   initScrollProgress();
   initActiveLinks();
   initTooltips();
+  initOffscreenPause();
   initHeroGlobe();
+  initSkillsNetwork();
+  initNameGlitch();
 
   if (animate) {
     initHeroIntro();
@@ -228,16 +231,29 @@ function initNav() {
   document.addEventListener("keydown", (e) => e.key === "Escape" && setOpen(false));
 }
 
+/* ---------- Congela las animaciones CSS de las secciones que no se ven (regla .is-offscreen) ---------- */
+function initOffscreenPause() {
+  const observer = new IntersectionObserver((entries) =>
+    entries.forEach((e) => e.target.classList.toggle("is-offscreen", !e.isIntersecting))
+  );
+  document.querySelectorAll("main > section").forEach((s) => observer.observe(s));
+}
+
 /* ---------- Barra de progreso de lectura ---------- */
 function initScrollProgress() {
   const bar = document.querySelector(".scroll-progress");
-  const update = () => {
-    const max = document.documentElement.scrollHeight - window.innerHeight;
-    bar.style.transform = `scaleX(${max > 0 ? window.scrollY / max : 0})`;
+  // El recorrido máximo se mide solo cuando cambia el tamaño de la página, no en cada scroll
+  // (leer scrollHeight tras una escritura de estilos fuerza un layout síncrono)
+  let max = 0;
+  const update = () => (bar.style.transform = `scaleX(${max > 0 ? window.scrollY / max : 0})`);
+  const measure = () => {
+    max = document.documentElement.scrollHeight - window.innerHeight;
+    update();
   };
-  update();
+  measure();
   window.addEventListener("scroll", update, { passive: true });
-  window.addEventListener("resize", update);
+  window.addEventListener("resize", measure);
+  new ResizeObserver(measure).observe(document.body);
 }
 
 /* ---------- Divide un texto en palabras (máscara) y letras ---------- */
@@ -310,6 +326,42 @@ function initHeroIntro() {
     .fromTo(".hero__role", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4 }, "-=0.7");
 }
 
+/* ---------- Glitch ocasional del nombre del hero (la animación está en el CSS) ---------- */
+function initNameGlitch() {
+  const name = document.querySelector(".glitch");
+  if (!name || prefersReducedMotion) return;
+  // Intervalos aleatorios para que no sea predecible: el primero justo al acabar la intro
+  // (las letras terminan de entrar hacia los 2 s), para que el visitante lo vea enseguida
+  const FIRST_MIN = 2000, FIRST_MAX = 3000;
+  const MIN_WAIT = 4000, MAX_WAIT = 6000;
+  const GLITCHED_CHARS = 3;
+
+  let heroVisible = true;
+  new IntersectionObserver(([entry]) => (heroVisible = entry.isIntersecting)).observe(name);
+
+  const glitch = () => {
+    // Letras sueltas que se descolocan (solo existen si la intro ha partido el texto)
+    const chars = [...name.querySelectorAll(".split-char")];
+    for (let i = 0; i < GLITCHED_CHARS && chars.length; i++) {
+      chars.splice((Math.random() * chars.length) | 0, 1)[0].classList.add("is-glitched");
+    }
+    name.classList.add("is-glitching");
+  };
+
+  name.addEventListener("animationend", (e) => {
+    if (e.target !== name) return; // ignora el animationend de palabras y letras
+    name.classList.remove("is-glitching");
+    name.querySelectorAll(".is-glitched").forEach((c) => c.classList.remove("is-glitched"));
+  });
+
+  const schedule = (min, max) =>
+    setTimeout(() => {
+      if (heroVisible && !document.hidden && !name.classList.contains("is-glitching")) glitch();
+      schedule(MIN_WAIT, MAX_WAIT);
+    }, min + Math.random() * (max - min));
+  schedule(FIRST_MIN, FIRST_MAX);
+}
+
 /* ---------- Globo de puntos del hero + bola de plasma (canvas, sin librerías) ---------- */
 function initHeroGlobe() {
   const canvas = document.getElementById("heroGlobe");
@@ -372,7 +424,17 @@ function initHeroGlobe() {
   let contactX = 0, contactY = 0; // punto donde el rayo toca el "cristal"
   let rect = null;         // posición del canvas en pantalla (caché)
 
+  // Círculo del color de acento pre-renderizado una vez; drawImage lo escala a cada punto
+  const dotSprite = document.createElement("canvas");
+  dotSprite.width = dotSprite.height = 16;
+  const dctx = dotSprite.getContext("2d");
+  dctx.fillStyle = dotColor;
+  dctx.arc(8, 8, 8, 0, Math.PI * 2);
+  dctx.fill();
+
   const resize = () => {
+    // En móvil el resize salta al mostrar/ocultar la barra de URL: si no cambia nada, no se toca
+    if (canvas.clientWidth === w && canvas.clientHeight === h) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 1.5); // más no se aprecia en puntos de 1–2 px
     w = canvas.clientWidth;
     h = canvas.clientHeight;
@@ -419,18 +481,22 @@ function initHeroGlobe() {
       if (l >= 0) order[levelStart[l] + levelCount[l]++] = i;
     }
 
-    // 3) Un solo relleno por nivel de opacidad
+    // 3) Por nivel de opacidad: los diminutos con fillRect y el resto copiando un sprite.
+    // Un path con miles de arcos obliga a la GPU a rasterizar una máscara del canvas entero
+    // en cada fill(); rectángulos e imágenes sueltos se agrupan en lotes y salen casi gratis.
     ctx.fillStyle = dotColor;
     for (let l = 0; l < LEVELS; l++) {
-      if (levelStart[l] === levelStart[l + 1]) continue;
+      const from = levelStart[l], to = levelStart[l + 1];
+      if (from === to) continue;
       ctx.globalAlpha = levelAlpha[l];
-      ctx.beginPath();
-      for (let k = levelStart[l]; k < levelStart[l + 1]; k++) {
+      for (let k = from; k < to; k++) {
         const i = order[k], r = sr[i];
-        if (r < 0.9) ctx.rect(sx[i] - r, sy[i] - r, r * 2, r * 2); // los diminutos: un cuadrado es más barato
-        else { ctx.moveTo(sx[i] + r, sy[i]); ctx.arc(sx[i], sy[i], r, 0, Math.PI * 2); }
+        if (r < 0.9) ctx.fillRect(sx[i] - r, sy[i] - r, r * 2, r * 2);
       }
-      ctx.fill();
+      for (let k = from; k < to; k++) {
+        const i = order[k], r = sr[i];
+        if (r >= 0.9) ctx.drawImage(dotSprite, sx[i] - r, sy[i] - r, r * 2, r * 2);
+      }
     }
     ctx.globalAlpha = 1;
   };
@@ -633,6 +699,170 @@ function initHeroGlobe() {
   }).observe(hero);
 }
 
+/* ---------- Fondo de Skills: red de nodos que se conectan por cercanía ---------- */
+function initSkillsNetwork() {
+  const canvas = document.getElementById("skillsNetwork");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const section = canvas.parentElement;
+
+  const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+  const LINK = 140;          // distancia máxima entre nodos para unirlos (px)
+  const LINK_CURSOR = 190;   // el cursor alcanza un poco más lejos
+  const LEVELS = 8;          // las líneas se agrupan en 8 opacidades: 8 trazos por fotograma, no uno por línea
+  const MAX_LINE_ALPHA = 0.46; // algo más opacas para compensar el grosor de 1 px
+  const DOT_ALPHA = 0.6;
+  const DOT_RADIUS = 2.1;
+  const LINE_WIDTH = 1;      // 1 px: Skia lo pinta como "hairline" (ruta rápida); 1.4 costaba el doble de GPU
+
+  let w = 0, h = 0, count = 0;
+  let px, py, vx, vy;
+  const paths = Array.from({ length: LEVELS }, () => new Path2D());
+  const cursor = { x: 0, y: 0, active: false };
+
+  const dotSprite = document.createElement("canvas");
+  dotSprite.width = dotSprite.height = 16;
+  const dctx = dotSprite.getContext("2d");
+  dctx.fillStyle = accent;
+  dctx.arc(8, 8, 8, 0, Math.PI * 2);
+  dctx.fill();
+
+  // Densidad según el área, con tope para que el O(n²) de las distancias siga siendo barato
+  const build = () => {
+    const n = Math.min(Math.round((w * h) / 11000), w < 768 ? 45 : 90);
+    if (n === count) return;
+    count = n;
+    px = new Float32Array(n); py = new Float32Array(n);
+    vx = new Float32Array(n); vy = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      px[i] = Math.random() * w;
+      py[i] = Math.random() * h;
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 0.12 + Math.random() * 0.18; // deriva lenta
+      vx[i] = Math.cos(angle) * speed;
+      vy[i] = Math.sin(angle) * speed;
+    }
+  };
+
+  const resize = () => {
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    w = canvas.clientWidth;
+    h = canvas.clientHeight;
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    build();
+  };
+
+  // Suma la línea a al grupo de opacidad que le toca según la distancia
+  const addLink = (x1, y1, x2, y2, d2, max) => {
+    const t = 1 - Math.sqrt(d2) / max; // 1 = pegados, 0 = en el límite
+    const level = Math.min(LEVELS - 1, (t * LEVELS) | 0);
+    paths[level].moveTo(x1, y1);
+    paths[level].lineTo(x2, y2);
+  };
+
+  const draw = () => {
+    ctx.clearRect(0, 0, w, h);
+    for (let l = 0; l < LEVELS; l++) paths[l] = new Path2D();
+
+    const link2 = LINK * LINK;
+    const cursor2 = LINK_CURSOR * LINK_CURSOR;
+    for (let i = 0; i < count; i++) {
+      const xi = px[i], yi = py[i];
+      for (let j = i + 1; j < count; j++) {
+        const dx = xi - px[j], dy = yi - py[j];
+        const d2 = dx * dx + dy * dy;
+        if (d2 < link2) addLink(xi, yi, px[j], py[j], d2, LINK);
+      }
+      if (cursor.active) {
+        const dx = xi - cursor.x, dy = yi - cursor.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < cursor2) addLink(xi, yi, cursor.x, cursor.y, d2, LINK_CURSOR);
+      }
+    }
+
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = LINE_WIDTH;
+    for (let l = 0; l < LEVELS; l++) {
+      ctx.globalAlpha = ((l + 1) / LEVELS) * MAX_LINE_ALPHA;
+      ctx.stroke(paths[l]);
+    }
+
+    // Nodos copiando un sprite: más barato para la GPU que un path con decenas de arcos
+    ctx.globalAlpha = DOT_ALPHA;
+    for (let i = 0; i < count; i++) {
+      ctx.drawImage(dotSprite, px[i] - DOT_RADIUS, py[i] - DOT_RADIUS, DOT_RADIUS * 2, DOT_RADIUS * 2);
+    }
+    ctx.globalAlpha = 1;
+  };
+
+  const step = (dt) => {
+    for (let i = 0; i < count; i++) {
+      px[i] += vx[i] * dt;
+      py[i] += vy[i] * dt;
+      // rebotan en los bordes en vez de reaparecer de golpe
+      if (px[i] < 0 || px[i] > w) { vx[i] = -vx[i]; px[i] = Math.max(0, Math.min(w, px[i])); }
+      if (py[i] < 0 || py[i] > h) { vy[i] = -vy[i]; py[i] = Math.max(0, Math.min(h, py[i])); }
+    }
+  };
+
+  resize();
+  new ResizeObserver(() => { resize(); if (prefersReducedMotion) draw(); }).observe(section);
+
+  // Con movimiento reducido se queda como un fondo estático
+  if (prefersReducedMotion) { draw(); return; }
+
+  // El canvas no recibe eventos (pointer-events: none): se escucha en la sección
+  section.addEventListener("pointermove", (e) => {
+    if (e.pointerType === "touch") return;
+    clientX = e.clientX;
+    clientY = e.clientY;
+    cursor.active = true;
+  }, { passive: true });
+  section.addEventListener("pointerleave", () => (cursor.active = false));
+
+  // Se guarda la posición en la ventana y se pasa al canvas en cada fotograma,
+  // para que siga cuadrando si la página hace scroll con el ratón quieto
+  let clientX = 0, clientY = 0;
+  let rect = null; // posición del canvas en pantalla: se mide solo tras scroll o resize
+  const invalidate = () => (rect = null);
+  window.addEventListener("scroll", invalidate, { passive: true });
+  window.addEventListener("resize", invalidate);
+  const syncCursor = () => {
+    if (!cursor.active) return;
+    if (!rect) rect = canvas.getBoundingClientRect();
+    cursor.x = clientX - rect.left;
+    cursor.y = clientY - rect.top;
+  };
+
+  // Bucle propio que solo corre mientras la sección está en pantalla
+  let rafId = 0;
+  let last = 0;
+  const loop = (time) => {
+    const dt = Math.min((time - last) / 16.67, 3);
+    last = time;
+    step(dt);
+    syncCursor();
+    draw();
+    rafId = requestAnimationFrame(loop);
+  };
+
+  // Con solo una franja a la vista (p. ej. el borde inferior mientras se leen los proyectos)
+  // el canvas se queda quieto: redibujarlo entero cada fotograma para 80 px no compensa
+  const MIN_VISIBLE = 0.15;
+  new IntersectionObserver(([entry]) => {
+    const visible = entry.intersectionRatio >= MIN_VISIBLE;
+    if (visible && !rafId) {
+      last = performance.now();
+      rafId = requestAnimationFrame(loop);
+    } else if (!visible && rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = 0;
+    }
+  }, { threshold: [0, MIN_VISIBLE] }).observe(section);
+}
+
 /* ---------- El hero se aleja suavemente al hacer scroll ---------- */
 function initHeroParallax() {
   const scrub = { trigger: ".hero", start: "top top", end: "bottom top", scrub: true };
@@ -773,7 +1003,12 @@ function initTyped({ delay = 0, onFirstTyped } = {}) {
   let charIndex = 0;
   let deleting = false;
 
+  // Con el hero fuera de pantalla (o la pestaña oculta) no se escribe: cada letra es un layout
+  let heroVisible = true;
+  new IntersectionObserver(([entry]) => (heroVisible = entry.isIntersecting)).observe(el.closest("section") || el);
+
   const tick = () => {
+    if (!heroVisible || document.hidden) return setTimeout(tick, 500);
     const current = roles[roleIndex];
     charIndex += deleting ? -1 : 1;
     el.textContent = current.slice(0, charIndex);

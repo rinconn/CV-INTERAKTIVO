@@ -1,6 +1,3 @@
-/* =========================================================
-   VARIABLES
-   ========================================================= */
 :root {
   --bg: #07080b;
   --bg-soft: #0e1015;
@@ -10,9 +7,9 @@
   --text: #ededee;
   --text-muted: #9b9ba3;
 
-  /* Acento único de toda la web: cambiando esta línea cambia la paleta */
+
   --accent: #ffa31a;
-  --on-accent: #07080b; /* texto sobre fondo de acento */
+  --on-accent: #07080b;
   --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent);
   --accent-glow: color-mix(in srgb, var(--accent) 55%, transparent);
   --gradient: linear-gradient(var(--accent), var(--accent));
@@ -25,9 +22,7 @@
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* =========================================================
-   BASE
-   ========================================================= */
+
 *,
 *::before,
 *::after {
@@ -40,8 +35,7 @@ html {
   scroll-padding-top: var(--nav-h);
 }
 
-/* Scroll suave nativo solo si Lenis no está activo (sin JS o movimiento reducido).
-   Con Lenis, los dos scrolls suaves a la vez se pelean y el scroll se atasca en los extremos. */
+
 html:not(.lenis) {
   scroll-behavior: smooth;
 }
@@ -74,14 +68,11 @@ ul {
   margin-inline: auto;
 }
 
-/* Texto destacado en el color de acento (p. ej. el nombre del hero) */
+
 .accent-text {
   color: var(--accent);
 }
 
-/* =========================================================
-   SCROLL PROGRESS
-   ========================================================= */
 .scroll-progress {
   position: fixed;
   inset: 0 0 auto 0;
@@ -92,9 +83,7 @@ ul {
   z-index: 200;
 }
 
-/* =========================================================
-   NAV
-   ========================================================= */
+
 .nav {
   position: fixed;
   inset: 0 0 auto 0;
@@ -115,7 +104,7 @@ ul {
   height: 100%;
   display: flex;
   align-items: center;
-  justify-content: flex-end; /* menú a la derecha; la identidad (avatar) va a la izquierda del hero */
+  justify-content: flex-end;
 }
 
 .nav__menu {
@@ -157,7 +146,7 @@ ul {
 
 .nav__toggle {
   display: none;
-  margin-left: auto; /* en móvil, el botón del menú a la derecha */
+  margin-left: auto;
   width: 32px;
   height: 32px;
   background: none;
@@ -177,18 +166,28 @@ ul {
   transition: transform 0.3s var(--ease), top 0.3s var(--ease);
 }
 
-.nav__toggle span:nth-child(1) { top: 11px; }
-.nav__toggle span:nth-child(2) { top: 19px; }
+.nav__toggle span:nth-child(1) {
+  top: 11px;
+}
 
-.nav__toggle[aria-expanded="true"] span:nth-child(1) { top: 15px; transform: rotate(45deg); }
-.nav__toggle[aria-expanded="true"] span:nth-child(2) { top: 15px; transform: rotate(-45deg); }
+.nav__toggle span:nth-child(2) {
+  top: 19px;
+}
 
-/* =========================================================
-   BOTONES
-   ========================================================= */
+.nav__toggle[aria-expanded="true"] span:nth-child(1) {
+  top: 15px;
+  transform: rotate(45deg);
+}
+
+.nav__toggle[aria-expanded="true"] span:nth-child(2) {
+  top: 15px;
+  transform: rotate(-45deg);
+}
+
+
 .btn {
   display: inline-flex;
-  border: 1px solid transparent; /* mismo borde en todos: los dos botones miden igual */
+  border: 1px solid transparent;
   align-items: center;
   gap: 0.5rem;
   padding: 0.85rem 1.6rem;
@@ -215,9 +214,6 @@ ul {
     0 12px 44px -6px var(--accent-glow);
 }
 
-/* =========================================================
-   HERO
-   ========================================================= */
 .hero {
   position: relative;
   min-height: 100vh;
@@ -249,25 +245,38 @@ ul {
 .blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(90px);
   opacity: 0.45;
   will-change: transform;
+}
+
+/* Halo con gradiente radial en vez de filter: blur(90px): un blur sobre una capa animada
+   lo recalcula la GPU en cada fotograma; el gradiente se rasteriza una vez.
+   inset negativo = lo que se extendía el desenfoque fuera del círculo */
+.blob::before {
+  content: "";
+  position: absolute;
+  inset: -180px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side,
+      var(--accent) 0%,
+      color-mix(in srgb, var(--accent) 90%, transparent) 25%,
+      color-mix(in srgb, var(--accent) 50%, transparent) 55%,
+      color-mix(in srgb, var(--accent) 15%, transparent) 78%,
+      transparent 100%);
 }
 
 .blob--1 {
   width: 480px;
   height: 480px;
-  background: var(--accent);
   top: -120px;
   left: -100px;
-  opacity: 0.2; /* más suave que el resto: queda detrás del título */
+  opacity: 0.2;
   animation: float 16s ease-in-out infinite;
 }
 
 .blob--2 {
   width: 380px;
   height: 380px;
-  background: var(--accent);
   bottom: -80px;
   right: -60px;
   animation: float 20s ease-in-out infinite reverse;
@@ -276,14 +285,12 @@ ul {
 .blob--3 {
   width: 260px;
   height: 260px;
-  background: var(--accent);
   top: 40%;
   left: 55%;
-  opacity: 0.25;
+  opacity: 0.17; /* con el blur, un círculo tan pequeño no llegaba a opacidad plena en el centro */
   animation: float 24s ease-in-out infinite;
 }
 
-/* Globo de puntos: se desvanece hacia la izquierda para no tapar el texto */
 .hero__globe {
   position: absolute;
   inset: 0;
@@ -295,7 +302,7 @@ ul {
 }
 
 @media (max-width: 768px) {
-  /* En móvil el texto ocupa todo el ancho: el globo asoma solo por abajo */
+
   .hero__globe {
     -webkit-mask-image: linear-gradient(180deg, transparent 45%, #000 85%);
     mask-image: linear-gradient(180deg, transparent 45%, #000 85%);
@@ -303,9 +310,19 @@ ul {
 }
 
 @keyframes float {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33%      { transform: translate(60px, -40px) scale(1.08); }
-  66%      { transform: translate(-40px, 50px) scale(0.95); }
+
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  33% {
+    transform: translate(60px, -40px) scale(1.08);
+  }
+
+  66% {
+    transform: translate(-40px, 50px) scale(0.95);
+  }
 }
 
 .hero__content {
@@ -324,9 +341,8 @@ ul {
   border-radius: 999px;
 }
 
-/* Avatar + estado, como la cabecera de un perfil */
 .hero__identity {
-  position: relative; /* referencia para el bocadillo del easter egg */
+  position: relative;
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -336,15 +352,15 @@ ul {
 .avatar {
   position: relative;
   flex-shrink: 0;
-  user-select: none; /* el triple click no selecciona texto */
-  cursor: pointer; /* es clicable (easter egg) */
+  user-select: none;
+  cursor: pointer;
   width: 64px;
   height: 64px;
   border-radius: 50%;
   display: grid;
   place-items: center;
   background: var(--bg-elev);
-  /* anillo ámbar separado de la foto por un hueco del color del fondo */
+
   box-shadow:
     0 0 0 3px var(--bg),
     0 0 0 5px var(--accent),
@@ -360,8 +376,7 @@ ul {
     0 0 40px -2px var(--accent-glow);
 }
 
-/* ---------- Easter egg: triple click en el avatar → modo "Party Parrot" ---------- */
-/* Gira sin parar y cicla todos los colores (el anillo ámbar incluido) */
+
 .avatar--party {
   animation:
     party-spin 0.6s linear infinite,
@@ -369,15 +384,22 @@ ul {
 }
 
 @keyframes party-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes party-hue {
-  from { filter: hue-rotate(0deg) saturate(1.6); }
-  to   { filter: hue-rotate(360deg) saturate(1.6); }
+  from {
+    filter: hue-rotate(0deg) saturate(1.6);
+  }
+
+  to {
+    filter: hue-rotate(360deg) saturate(1.6);
+  }
 }
 
-/* Bocadillo con el mensaje, encima del avatar */
+
 .party-toast {
   position: absolute;
   left: 0;
@@ -399,7 +421,6 @@ ul {
   animation: toast-out 0.3s ease-in both;
 }
 
-/* Texto arcoíris que también va rotando de color */
 .party-toast span {
   background: linear-gradient(90deg, #ff4d4d, #ffa31a, #ffe14d, #4dff88, #4dc3ff, #b84dff, #ff4d4d);
   background-size: 200% 100%;
@@ -409,7 +430,6 @@ ul {
   animation: rainbow-slide 1.2s linear infinite;
 }
 
-/* Flechita apuntando al avatar */
 .party-toast::after {
   content: "";
   position: absolute;
@@ -424,16 +444,28 @@ ul {
 }
 
 @keyframes toast-pop {
-  from { opacity: 0; transform: translateY(8px) scale(0.8); }
-  to   { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.8);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @keyframes toast-out {
-  to { opacity: 0; transform: translateY(-6px) scale(0.95); }
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.95);
+  }
 }
 
 @keyframes rainbow-slide {
-  to { background-position: 200% 0; }
+  to {
+    background-position: 200% 0;
+  }
 }
 
 
@@ -450,14 +482,13 @@ ul {
   object-position: center;
 }
 
-/* Para ilustraciones que ocupan todo el cuadrado: la figura entera dentro del círculo */
 .avatar__img--contain {
   object-fit: contain;
   padding: 5px;
   background: #fff;
 }
 
-/* Iniciales que se ven mientras no haya foto (o si no carga) */
+
 .avatar__fallback {
   display: grid;
   place-items: center;
@@ -478,24 +509,33 @@ ul {
   }
 }
 
-/* Estados de disponibilidad (se elige en main.js → ESTADO_DISPONIBILIDAD).
-   Excepción deliberada a la paleta: verde y rojo solo aquí, porque tienen significado. */
-.hero__status[data-state="disponible"]    { --status: #22c55e; }
-.hero__status[data-state="ocupado"]       { --status: var(--accent); }
-.hero__status[data-state="no-disponible"] { --status: #ef4444; }
+
+.hero__status[data-state="disponible"] {
+  --status: #22c55e;
+}
+
+.hero__status[data-state="ocupado"] {
+  --status: var(--accent);
+}
+
+.hero__status[data-state="no-disponible"] {
+  --status: #ef4444;
+}
 
 .hero__status {
   border-color: color-mix(in srgb, var(--status, var(--accent)) 28%, var(--border));
   transition: border-color 0.4s;
 }
 
-/* Punto que "respira": se hincha y su brillo sube y baja; además suelta una onda */
+
 .dot {
   position: relative;
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: var(--status, var(--accent));
+  /* sombra fija: animar box-shadow repinta cada fotograma; con transform crece con el punto */
+  box-shadow: 0 0 8px 1px color-mix(in srgb, var(--status, var(--accent)) 55%, transparent);
   animation: breathe 2.4s ease-in-out infinite;
 }
 
@@ -509,19 +549,28 @@ ul {
 }
 
 @keyframes breathe {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: scale(0.85);
-    box-shadow: 0 0 4px 0 color-mix(in srgb, var(--status, var(--accent)) 40%, transparent);
   }
+
   50% {
     transform: scale(1.15);
-    box-shadow: 0 0 10px 2px color-mix(in srgb, var(--status, var(--accent)) 70%, transparent);
   }
 }
 
 @keyframes ripple {
-  0%       { transform: scale(1); opacity: 0.6; }
-  70%, 100% { transform: scale(3); opacity: 0; }
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+
+  70%,
+  100% {
+    transform: scale(3);
+    opacity: 0;
+  }
 }
 
 .hero__title {
@@ -554,7 +603,9 @@ ul {
 }
 
 @keyframes blink {
-  50% { opacity: 0; }
+  50% {
+    opacity: 0;
+  }
 }
 
 .hero__desc {
@@ -603,12 +654,12 @@ ul {
   fill: var(--accent);
 }
 
-/* ---------- Barra lateral fija con las redes (pantallas ≥ 1200px) ---------- */
+
 .social-rail {
   position: fixed;
   left: 28px;
   top: 50%;
-  translate: 0 -50%; /* "translate" y no "transform": GSAP anima transform sin pisar el centrado */
+  translate: 0 -50%;
   z-index: 90;
   display: flex;
   flex-direction: column;
@@ -616,7 +667,7 @@ ul {
   gap: 1rem;
 }
 
-/* Línea fina encima y debajo de los iconos */
+
 .social-rail::before,
 .social-rail::after {
   content: "";
@@ -635,7 +686,8 @@ ul {
 }
 
 .social-rail .social-list a:hover {
-  transform: translateX(3px); /* en vertical, el icono se desplaza hacia fuera */
+  transform: translateX(3px);
+  /* en vertical, el icono se desplaza hacia fuera */
 }
 
 /* Copia de los iconos dentro del menú (la rellena main.js): solo en pantallas < 1200px */
@@ -701,8 +753,15 @@ ul {
 }
 
 @keyframes wheel {
-  0%   { transform: translateY(0); opacity: 1; }
-  100% { transform: translateY(12px); opacity: 0; }
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(12px);
+    opacity: 0;
+  }
 }
 
 /* =========================================================
@@ -748,20 +807,34 @@ ul {
   border-top: 1px solid var(--border);
 }
 
-/* Línea del título: GSAP anima --line de 0 a 1 */
+
 .section__title::after {
   transform: scaleX(var(--line, 1));
   transform-origin: left;
 }
 
-/* =========================================================
-   PROYECTOS
-   ========================================================= */
-/* Cinta de luz ámbar en arco detrás de las cards (estilo nestjs.com) */
+
+/* Fondo de Skills: red de nodos (canvas), detrás del contenido y difuminada arriba y abajo */
+#skills {
+  position: relative;
+  isolation: isolate;
+}
+
+.skills__network {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 18%, #000 82%, transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 18%, #000 82%, transparent);
+}
+
 #proyectos {
   position: relative;
-  isolation: isolate;  /* la cinta (z-index: -1) queda detrás de las cards pero delante del fondo */
-  overflow: clip;      /* el desenfoque no crea scroll ni cambia la altura de la página */
+  isolation: isolate;
+  overflow: clip;
 }
 
 .projects-glow {
@@ -772,29 +845,44 @@ ul {
   width: min(1500px, 150vw);
   aspect-ratio: 3 / 2;
   translate: -50% -50%;
-  opacity: 0.6; /* visible sin competir con las cards (están delante y son opacas) */
+  opacity: 0.6;
   pointer-events: none;
   transform-origin: 50% 75%;
-  will-change: transform, opacity;
+  /* se animan scale y rotate (propiedades sueltas), no transform: el hint tiene que nombrarlas */
+  will-change: scale, rotate, opacity;
   animation: glow-breathe 9s ease-in-out infinite alternate, glow-sway 26s ease-in-out infinite alternate;
 }
 
-.projects-glow svg {
-  width: 100%;
-  height: 100%;
-  overflow: visible;
+/* La imagen cubre el viewBox original (1200×800) más 120 px de margen para el desenfoque */
+.projects-glow img {
+  position: absolute;
+  left: -10%;
+  top: -15%;
+  width: 120%;
+  height: 130%;
+  max-width: none;
 }
 
-/* Respiración: el brillo sube y baja y la cinta se expande un poco */
 @keyframes glow-breathe {
-  from { opacity: 0.5;  scale: 0.97; }
-  to   { opacity: 0.78; scale: 1.03; }
+  from {
+    opacity: 0.5;
+    scale: 0.97;
+  }
+
+  to {
+    opacity: 0.78;
+    scale: 1.03;
+  }
 }
 
-/* Balanceo lento, como si la cinta girase sobre sí misma */
 @keyframes glow-sway {
-  from { rotate: -7deg; }
-  to   { rotate: 7deg; }
+  from {
+    rotate: -7deg;
+  }
+
+  to {
+    rotate: 7deg;
+  }
 }
 
 @media (max-width: 760px) {
@@ -816,6 +904,20 @@ ul {
   }
 }
 
+/* Posición del ratón en la card: se actualiza en cada pointermove. Registradas como no
+   heredables, solo se recalculan la card y sus pseudo-elementos, no todo su contenido */
+@property --mx {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 50%;
+}
+
+@property --my {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 50%;
+}
+
 .project-card {
   --mx: 50%;
   --my: 50%;
@@ -831,18 +933,22 @@ ul {
   transition: box-shadow 0.5s var(--ease), border-color 0.5s var(--ease);
 }
 
-/* Borde más intenso cerca del ratón, solo en hover */
+
+.project-card::before,
+.project-card::after {
+  --mx: inherit;
+  --my: inherit;
+}
+
 .project-card::before {
   content: "";
   position: absolute;
   inset: -1px;
   border-radius: inherit;
   padding: 1px;
-  background: radial-gradient(
-    400px circle at var(--mx) var(--my),
-    var(--accent),
-    transparent 70%
-  );
+  background: radial-gradient(400px circle at var(--mx) var(--my),
+      var(--accent),
+      transparent 70%);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
@@ -851,17 +957,15 @@ ul {
   pointer-events: none;
 }
 
-/* Brillo interior que sigue al ratón */
+
 .project-card::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: radial-gradient(
-    500px circle at var(--mx) var(--my),
-    color-mix(in srgb, var(--accent) 12%, transparent),
-    transparent 50%
-  );
+  background: radial-gradient(500px circle at var(--mx) var(--my),
+      color-mix(in srgb, var(--accent) 12%, transparent),
+      transparent 50%);
   opacity: 0;
   transition: opacity 0.4s;
   pointer-events: none;
@@ -895,21 +999,21 @@ ul {
   border-bottom: 1px solid var(--border);
 }
 
-/* Si pones una imagen real: <img class="project-card__img" src="..."> */
+
 .project-card__img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: grid;
   place-items: center;
-  background: var(--bg-soft); /* fondo oscuro liso detrás del mockup */
-  transform: scale(1.12); /* margen para el parallax */
+  background: var(--bg-soft);
+  transform: scale(1.12);
   will-change: transform;
 }
 
-/* ---------- Mockup de ventana de navegador ---------- */
+
 .project-card__img:has(.browser) {
-  place-items: end center; /* la ventana asoma desde abajo */
+  place-items: end center;
 }
 
 .browser {
@@ -953,8 +1057,13 @@ ul {
   background: #ff5f57;
 }
 
-.browser__dots i:nth-child(2) { background: #febc2e; }
-.browser__dots i:nth-child(3) { background: #28c840; }
+.browser__dots i:nth-child(2) {
+  background: #febc2e;
+}
+
+.browser__dots i:nth-child(3) {
+  background: #28c840;
+}
 
 .browser__url {
   flex: 1;
@@ -963,7 +1072,7 @@ ul {
   justify-content: center;
   gap: 0.35rem;
   min-width: 0;
-  margin-right: 2.2rem; /* compensa los puntos para centrar la URL */
+  margin-right: 2.2rem;
   padding: 0.2rem 0.75rem;
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.06);
@@ -1000,13 +1109,12 @@ ul {
   position: relative;
   flex: 1;
   overflow: hidden;
-  /* Se ve mientras carga la imagen */
+
   background:
     var(--bg);
 }
 
-/* Captura del proyecto: rellena la pantalla y enseña la parte de arriba
-   (la ventana está recortada por abajo, así que el pie de la captura no se ve) */
+
 .browser__screen img {
   position: absolute;
   inset: 0;
@@ -1021,7 +1129,7 @@ ul {
   flex-direction: column;
   flex: 1;
   padding: 1.75rem;
-  transform: translateZ(20px); /* profundidad con el tilt (la perspectiva la pone GSAP en la card) */
+  transform: translateZ(20px);
 }
 
 .project-card__meta {
@@ -1082,7 +1190,7 @@ ul {
   box-shadow: 0 6px 18px -8px var(--accent-glow);
 }
 
-/* Logo de la tecnología: el SVG se usa como máscara, así toma el color del texto */
+
 .tech-icon {
   width: 13px;
   height: 13px;
@@ -1098,7 +1206,6 @@ ul {
   transform: rotate(-12deg) scale(1.2);
 }
 
-/* Tooltip con el uso de la tecnología en el proyecto */
 .tip {
   position: absolute;
   bottom: calc(100% + 10px);
@@ -1116,17 +1223,17 @@ ul {
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
-  /* --tip-shift lo calcula main.js para que el tooltip no se salga de la pantalla */
+
   transform: translate(calc(-50% + var(--tip-shift, 0px)), 4px);
   transition: opacity 0.2s, transform 0.25s var(--ease);
 }
 
-/* Flecha apuntando al badge */
+
 .tip::after {
   content: "";
   position: absolute;
   top: 100%;
-  left: calc(50% - var(--tip-shift, 0px)); /* sigue apuntando al badge */
+  left: calc(50% - var(--tip-shift, 0px));
   width: 8px;
   height: 8px;
   background: var(--bg-elev);
@@ -1141,36 +1248,111 @@ ul {
   transform: translate(calc(-50% + var(--tip-shift, 0px)), 0);
 }
 
-/* Logos de Simple Icons (https://simpleicons.org) */
-.tech-icon--react     { --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/react.svg"); }
-.tech-icon--node      { --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/nodedotjs.svg"); }
-.tech-icon--supabase  { --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/supabase.svg"); }
-.tech-icon--solidity  { --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/solidity.svg"); }
-.tech-icon--stripe    { --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/stripe.svg"); }
-.tech-icon--python    { --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/python.svg"); }
-.tech-icon--streamlit { --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/streamlit.svg"); }
-.tech-icon--sqlite    { --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/sqlite.svg"); }
-/* Web3.py no está en Simple Icons: se usa el logo de Ethereum, la red con la que trabaja */
-.tech-icon--web3py    { --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/ethereum.svg"); }
 
-.tech-icon--html       { --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/html5.svg"); }
-.tech-icon--css        { --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/css.svg"); }
-.tech-icon--javascript { --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/javascript.svg"); }
-.tech-icon--angular    { --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/angular.svg"); }
-.tech-icon--springboot { --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/springboot.svg"); }
-.tech-icon--mongodb    { --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/mongodb.svg"); }
-.tech-icon--git        { --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/git.svg"); }
-.tech-icon--github     { --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/github.svg"); }
-/* SQL no tiene logo propio en Simple Icons: icono genérico de base de datos */
-.tech-icon--sql        { --icon: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27%3E%3Cpath d=%27M12 2C7 2 3 3.8 3 6v12c0 2.2 4 4 9 4s9-1.8 9-4V6c0-2.2-4-4-9-4zm0 2c4.4 0 7 1.4 7 2s-2.6 2-7 2-7-1.4-7-2 2.6-2 7-2zm7 14c0 .6-2.6 2-7 2s-7-1.4-7-2v-3.1c1.8 1.1 4.3 1.6 7 1.6s5.2-.5 7-1.6V18zm0-6c0 .6-2.6 2-7 2s-7-1.4-7-2V8.9c1.8 1.1 4.3 1.6 7 1.6s5.2-.5 7-1.6V12z%27/%3E%3C/svg%3E"); }
+.tech-icon--react {
+  --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/react.svg");
+}
 
-/* =========================================================
-   SKILLS
-   ========================================================= */
-/* Carrusel infinito: la pista contiene la lista dos veces y se desplaza la mitad */
+.tech-icon--node {
+  --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/nodedotjs.svg");
+}
+
+.tech-icon--supabase {
+  --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/supabase.svg");
+}
+
+.tech-icon--solidity {
+  --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/solidity.svg");
+}
+
+.tech-icon--stripe {
+  --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/stripe.svg");
+}
+
+.tech-icon--python {
+  --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/python.svg");
+}
+
+.tech-icon--streamlit {
+  --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/streamlit.svg");
+}
+
+.tech-icon--sqlite {
+  --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/sqlite.svg");
+}
+
+.tech-icon--web3py {
+  --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/ethereum.svg");
+}
+
+.tech-icon--html {
+  --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/html5.svg");
+}
+
+.tech-icon--css {
+  --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/css.svg");
+}
+
+.tech-icon--javascript {
+  --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/javascript.svg");
+}
+
+.tech-icon--angular {
+  --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/angular.svg");
+}
+
+.tech-icon--springboot {
+  --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/springboot.svg");
+}
+
+.tech-icon--mongodb {
+  --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/mongodb.svg");
+}
+
+.tech-icon--git {
+  --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/git.svg");
+}
+
+.tech-icon--github {
+  --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/github.svg");
+}
+
+.tech-icon--typescript {
+  --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/typescript.svg");
+}
+
+.tech-icon--tailwind {
+  --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/tailwindcss.svg");
+}
+
+.tech-icon--bootstrap {
+  --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/bootstrap.svg");
+}
+
+.tech-icon--vite {
+  --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/vite.svg");
+}
+
+.tech-icon--java {
+  --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/openjdk.svg");
+}
+
+.tech-icon--mysql {
+  --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/mysql.svg");
+}
+
+.tech-icon--docker {
+  --icon: url("https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/docker.svg");
+}
+
+/* Un solo contenedor recorta las dos filas: así el tooltip de la fila de abajo
+   puede montarse sobre la de arriba sin cortarse */
 .marquee {
+  --marquee-speed: 26s;
+  display: grid;
+  gap: 1.25rem;
   overflow: hidden;
-  padding-block: 3.25rem 0.75rem; /* hueco arriba para el tooltip (overflow: hidden lo recortaría) */
+  padding-block: 3.25rem 0.75rem;
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
   mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
 }
@@ -1178,29 +1360,28 @@ ul {
 .marquee__track {
   display: flex;
   width: max-content;
-  animation: marquee 44s linear infinite; /* más tarjetas → más duración, misma velocidad */
+  animation: marquee var(--marquee-speed) linear infinite;
 }
 
-.marquee:hover .marquee__track {
-  animation-play-state: paused; /* se detiene al pasar el ratón */
+/* Fila inferior: misma animación al revés → se desplaza hacia la derecha */
+.marquee__track--reverse {
+  animation-direction: reverse;
 }
 
 .marquee__list {
   display: flex;
   gap: 1.25rem;
-  padding-right: 1.25rem; /* mismo hueco entre las dos copias que entre tarjetas */
+  padding-right: 1.25rem;
 }
 
 @keyframes marquee {
-  to { transform: translateX(-50%); }
+  to {
+    transform: translateX(-50%);
+  }
 }
 
-/* Badges estilo "Skill Icons": cada tecnología con su color de marca de fondo, siempre visible.
-   --brand: color de la tecnología (fondo, brillo y borde del tooltip)
-   --on-brand: color del texto y del logo, elegido por contraste (blanco u oscuro)
-   Excepción deliberada a la paleta ámbar: solo en estas tarjetas. */
 .skill {
-  position: relative; /* referencia para el tooltip */
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.8rem;
@@ -1223,8 +1404,7 @@ ul {
   box-shadow: 0 12px 34px -8px color-mix(in srgb, var(--brand, var(--accent)) 70%, transparent);
 }
 
-/* Tooltip de cada tecnología: mismo estilo que el de los badges de proyecto,
-   con el borde y la flecha en el color de la tecnología */
+
 .skill .tip {
   font-family: var(--font-body);
   font-weight: 500;
@@ -1243,19 +1423,84 @@ ul {
   transform: translate(-50%, 0);
 }
 
-/* Spring Boot y MongoDB se alejan a propósito de su verde oficial para que todos se distingan */
-.skill--html       { --brand: #e34f26; }
-.skill--css        { --brand: #1572b6; }
-.skill--javascript { --brand: #f7df1e; --on-brand: #1a1a1a; }
-.skill--react      { --brand: #22d3ee; --on-brand: #0b1a1f; }
-.skill--angular    { --brand: #dd0031; }
-.skill--springboot { --brand: #9333ea; }
-.skill--node       { --brand: #3c873a; }
-.skill--mongodb    { --brand: #eab308; --on-brand: #1a1405; }
-.skill--sql        { --brand: #1e3a8a; }
-.skill--git        { --brand: #f97316; --on-brand: #1f0e02; }
-/* GitHub: fondo gris oscuro con texto blanco; --brand (claro) se usa en el brillo y el tooltip */
-.skill--github     { --brand: #e6edf3; --brand-bg: #24292f; border-color: rgba(255, 255, 255, 0.18); }
+
+.skill--html {
+  --brand: #e34f26;
+}
+
+.skill--css {
+  --brand: #1572b6;
+}
+
+.skill--javascript {
+  --brand: #f7df1e;
+  --on-brand: #1a1a1a;
+}
+
+.skill--react {
+  --brand: #22d3ee;
+  --on-brand: #0b1a1f;
+}
+
+.skill--typescript {
+  --brand: #3178c6;
+}
+
+.skill--angular {
+  --brand: #dd0031;
+}
+
+.skill--tailwind {
+  --brand: #0e7490;
+}
+
+.skill--bootstrap {
+  --brand: #7952b3;
+}
+
+.skill--vite {
+  --brand: #646cff;
+}
+
+.skill--java {
+  --brand: #e76f00;
+}
+
+.skill--python {
+  --brand: #3776ab;
+}
+
+.skill--mysql {
+  --brand: #00758f;
+}
+
+.skill--docker {
+  --brand: #2496ed;
+}
+
+.skill--springboot {
+  --brand: #9333ea;
+}
+
+.skill--node {
+  --brand: #3c873a;
+}
+
+.skill--mongodb {
+  --brand: #eab308;
+  --on-brand: #1a1405;
+}
+
+.skill--git {
+  --brand: #f97316;
+  --on-brand: #1f0e02;
+}
+
+.skill--github {
+  --brand: #e6edf3;
+  --brand-bg: #24292f;
+  border-color: rgba(255, 255, 255, 0.18);
+}
 
 .skill__icon {
   width: 30px;
@@ -1266,7 +1511,7 @@ ul {
   mask: var(--icon) center / contain no-repeat;
 }
 
-/* Soft skills: bloque secundario, más discreto */
+
 .soft-skills {
   margin-top: 2.5rem;
   text-align: center;
@@ -1288,7 +1533,6 @@ ul {
   gap: 0.75rem;
 }
 
-/* Cada soft skill como una tarjeta pequeña, en la línea de las de tecnologías */
 .soft-skills__list li {
   padding: 0.6rem 1.15rem;
   border-radius: 12px;
@@ -1321,12 +1565,26 @@ ul {
   }
 }
 
-/* Con movimiento reducido: sin desplazamiento, una sola lista que se ajusta en filas */
+
 @media (prefers-reduced-motion: reduce) {
-  .marquee { -webkit-mask-image: none; mask-image: none; }
-  .marquee__track { width: auto; animation: none; }
-  .marquee__list { flex-wrap: wrap; padding-right: 0; }
-  .marquee__list[aria-hidden="true"] { display: none; }
+  .marquee {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .marquee__track {
+    width: auto;
+    animation: none;
+  }
+
+  .marquee__list {
+    flex-wrap: wrap;
+    padding-right: 0;
+  }
+
+  .marquee__list[aria-hidden="true"] {
+    display: none;
+  }
 }
 
 .project-card__links {
@@ -1349,15 +1607,6 @@ ul {
   color: var(--accent);
 }
 
-/* =========================================================
-   ANIMACIONES (GSAP)
-   - .reveal       → aparece al hacer scroll (stagger automático)
-     variantes: .reveal--left, .reveal--right, .reveal--zoom
-   - .hero__anim   → forma parte de la intro del hero
-   - [data-split]  → el texto se divide en letras con máscara
-   La clase html.js-anim la pone un script en <head>; si GSAP no carga,
-   main.js la quita y todo se ve sin animación.
-   ========================================================= */
 .js-anim .nav,
 .js-anim .social-rail,
 .js-anim .reveal,
@@ -1369,19 +1618,83 @@ ul {
   display: inline-block;
   overflow: hidden;
   vertical-align: top;
-  /* Espacio extra para que no se corten descendentes (g, p, j) */
+
   padding-bottom: 0.12em;
   margin-bottom: -0.12em;
 }
 
 .split-char {
   display: inline-block;
-  will-change: transform;
 }
 
-/* =========================================================
-   RESPONSIVE
-   ========================================================= */
+/* JS marca las secciones que no se ven: sus animaciones CSS infinitas (blobs, marquee,
+   brillo de proyectos...) se congelan y dejan de gastar GPU */
+.is-offscreen *,
+.is-offscreen *::before,
+.is-offscreen *::after {
+  animation-play-state: paused !important;
+}
+
+/* Glitch ocasional del nombre (lo dispara JS): capas de color desalineadas con text-shadow,
+   sacudida de las palabras y unas pocas letras que se descolocan. steps(1): cada fotograma
+   se mantiene y salta al siguiente, sin transiciones suaves → se lee como un fallo */
+.glitch.is-glitching {
+  animation: glitch-rgb 0.38s steps(1, end);
+}
+
+/* la máscara de la intro recortaría las capas desplazadas */
+.glitch.is-glitching .split-word {
+  overflow: visible;
+  animation: glitch-shake 0.38s steps(1, end);
+}
+
+.glitch .split-char.is-glitched {
+  animation: glitch-char 0.38s steps(1, end);
+}
+
+@keyframes glitch-rgb {
+  0% {
+    text-shadow: -3px 0 rgba(255, 106, 0, 0.85), 3px 0 rgba(34, 211, 238, 0.4);
+  }
+  12% {
+    text-shadow: 4px 0 rgba(255, 210, 122, 0.8), -3px 0 rgba(255, 255, 255, 0.45);
+  }
+  26% {
+    text-shadow: -5px 1px rgba(255, 106, 0, 0.8), 4px -1px rgba(34, 211, 238, 0.45);
+    opacity: 0.75;
+  }
+  38% {
+    text-shadow: none;
+    opacity: 1;
+  }
+  52% {
+    text-shadow: 2px 0 rgba(255, 106, 0, 0.8), -2px 0 rgba(34, 211, 238, 0.35);
+  }
+  68% {
+    text-shadow: -1px 0 rgba(255, 255, 255, 0.4), 1px 0 rgba(255, 210, 122, 0.7);
+  }
+  82%,
+  100% {
+    text-shadow: none;
+  }
+}
+
+@keyframes glitch-shake {
+  0% { transform: translateX(2px) skewX(-6deg); }
+  12% { transform: translateX(-3px); }
+  26% { transform: translate(1px, -1px) skewX(7deg); }
+  38% { transform: none; }
+  52% { transform: translateX(-2px) skewX(-3deg); }
+  68%, 100% { transform: none; }
+}
+
+@keyframes glitch-char {
+  0% { transform: translate(5px, -2px); color: #fff; }
+  26% { transform: translate(-4px, 1px) skewX(12deg); color: #ffd27a; }
+  52% { transform: translateX(3px); color: rgba(34, 211, 238, 0.9); }
+  68%, 100% { transform: none; color: inherit; }
+}
+
 @media (max-width: 768px) {
   .nav__toggle {
     display: block;
@@ -1406,7 +1719,7 @@ ul {
     pointer-events: auto;
   }
 
-  /* El desenfoque del nav haría que el menú (fixed) se midiera respecto al nav y no a la pantalla */
+
   .nav:has(.nav__menu.is-open) {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
@@ -1416,7 +1729,7 @@ ul {
     font-size: 1.4rem;
   }
 
-  /* iconos de redes dentro del menú desplegable */
+
   .nav__social {
     margin: 0.5rem 0 0;
     gap: 1rem;
@@ -1433,16 +1746,24 @@ ul {
     height: 22px;
   }
 
-  .blob--1 { width: 300px; height: 300px; }
-  .blob--2 { width: 260px; height: 260px; }
+  .blob--1 {
+    width: 300px;
+    height: 300px;
+  }
+
+  .blob--2 {
+    width: 260px;
+    height: 260px;
+  }
 
   .hero__scroll {
     display: none;
   }
 }
 
-/* Respeta usuarios que prefieren menos movimiento */
+
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {
