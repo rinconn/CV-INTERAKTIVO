@@ -33,6 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initOffscreenPause();
   initHeroGlobe();
   initSkillsNetwork();
+  initTimeline();
   initNameGlitch();
 
   if (animate) {
@@ -1055,4 +1056,215 @@ function initActiveLinks() {
   );
 
   sections.forEach((s) => observer.observe(s));
+}
+
+/* ---------- Trayectoria: la carga baja por la línea y enciende cada nodo (con chispas en canvas) ---------- */
+function initTimeline() {
+  const timeline = document.getElementById("timeline");
+  if (!timeline) return;
+  const canvas = timeline.querySelector(".timeline__particles");
+  const ctx = canvas.getContext("2d");
+  const checkpoints = [...timeline.querySelectorAll(".checkpoint")];
+  const nodes = checkpoints.map((c) => c.querySelector(".checkpoint__node"));
+
+  const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+  const CANVAS_PAD = 80;   // el canvas sobresale 80 px por arriba y por abajo (ver CSS) para que las chispas no se corten
+  const MAX = 500;         // tope de partículas vivas
+  const IDLE_RATE = 5;     // chispas por segundo de cada nodo encendido
+  const HEAD_RATE = 26;    // chispas por segundo de la cabeza mientras se mueve
+  const BURST = 46;        // chispas al encenderse un nodo
+
+  // Posición de cada nodo (centro) respecto a la línea; se mide solo al cambiar el tamaño
+  let trackX = 0, trackTop = 0, trackH = 1, w = 0, h = 0;
+  let stops = []; // 0 → 1: en qué punto de la carga se enciende cada nodo
+  let points = [];
+  const measure = () => {
+    const box = timeline.getBoundingClientRect();
+    points = nodes.map((n) => {
+      const r = n.getBoundingClientRect();
+      return { x: r.left + r.width / 2 - box.left, y: r.top + r.height / 2 - box.top };
+    });
+    trackX = points[0].x;
+    trackTop = points[0].y;
+    trackH = Math.max(1, points[points.length - 1].y - trackTop);
+    stops = points.map((p) => (p.y - trackTop) / trackH);
+    timeline.style.setProperty("--track-top", `${trackTop}px`);
+    timeline.style.setProperty("--track-h", `${trackH}px`);
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    w = canvas.clientWidth;
+    h = canvas.clientHeight;
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+
+  // Sin animaciones: la línea queda cargada y todos los nodos encendidos, sin partículas
+  if (!animate) {
+    measure();
+    new ResizeObserver(measure).observe(timeline);
+    timeline.style.setProperty("--progress", 1);
+    checkpoints.forEach((c) => c.classList.add("is-active"));
+    return;
+  }
+
+  // Sprite de la chispa: núcleo blanco que se funde al color de acento
+  const sprite = document.createElement("canvas");
+  sprite.width = sprite.height = 32;
+  const sctx = sprite.getContext("2d");
+  const grad = sctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+  grad.addColorStop(0, "#fff");
+  grad.addColorStop(0.25, accent);
+  grad.addColorStop(1, "transparent");
+  sctx.fillStyle = grad;
+  sctx.fillRect(0, 0, 32, 32);
+
+  // Partículas en arrays planos (sin objetos → sin basura que recoger cada fotograma)
+  const px = new Float32Array(MAX), py = new Float32Array(MAX);
+  const vx = new Float32Array(MAX), vy = new Float32Array(MAX);
+  const life = new Float32Array(MAX), ttl = new Float32Array(MAX), size = new Float32Array(MAX);
+  let alive = 0;
+
+  const spawn = (x, y, speed, spread = Math.PI * 2, dir = 0) => {
+    if (alive >= MAX) return;
+    const i = alive++;
+    const a = dir + (Math.random() - 0.5) * spread;
+    const s = speed * (0.35 + Math.random() * 0.65);
+    px[i] = x; py[i] = y + CANVAS_PAD;
+    vx[i] = Math.cos(a) * s;
+    vy[i] = Math.sin(a) * s;
+    ttl[i] = life[i] = 40 + Math.random() * 60; // en fotogramas de 60 fps
+    size[i] = 3 + Math.random() * 7;
+  };
+
+  const burst = (p) => {
+    for (let k = 0; k < BURST; k++) spawn(p.x, p.y, 4.2);
+  };
+
+  // ScrollTrigger da el objetivo (target) y el bucle lo persigue suavemente (charge.p)
+  const charge = { p: 0, target: 0 };
+  let lastP = 0;
+  let headSpeed = 0;
+  const hovered = new Set();
+
+  const apply = () => {
+    const p = charge.p;
+    timeline.style.setProperty("--progress", p.toFixed(4));
+    headSpeed = Math.abs(p - lastP) * trackH;
+    // Al bajar se enciende (con estallido); al volver a subir se apaga en silencio
+    checkpoints.forEach((c, i) => {
+      const on = p >= stops[i] - 0.001;
+      if (on === c.classList.contains("is-active")) return;
+      c.classList.toggle("is-active", on);
+      if (on && p > lastP) burst(points[i]);
+    });
+    lastP = p;
+  };
+
+  measure();
+  const follow = (self) => (charge.target = self.progress);
+  ScrollTrigger.create({
+    trigger: timeline,
+    start: () => `top+=${trackTop} 62%`,
+    end: () => `top+=${trackTop + trackH} 62%`,
+    invalidateOnRefresh: true,
+    onUpdate: follow,
+    onRefresh: follow,
+  });
+  new ResizeObserver(() => { measure(); ScrollTrigger.refresh(); }).observe(timeline);
+
+  // Al pasar el ratón por una tarjeta, su nodo chisporrotea más
+  checkpoints.forEach((c, i) => {
+    const card = c.querySelector(".checkpoint__card");
+    card.addEventListener("pointerenter", () => {
+      hovered.add(i);
+      if (c.classList.contains("is-active")) for (let k = 0; k < 14; k++) spawn(points[i].x, points[i].y, 2.6);
+    });
+    card.addEventListener("pointerleave", () => hovered.delete(i));
+  });
+
+  const emit = (dt) => {
+    const seconds = dt / 60;
+    checkpoints.forEach((c, i) => {
+      const always = c.classList.contains("checkpoint--next");
+      if (!always && !c.classList.contains("is-active")) return;
+      const rate = IDLE_RATE * (hovered.has(i) ? 5 : 1);
+      // "rate * seconds" suele ser < 1: se emite con esa probabilidad para mantener la media
+      let n = rate * seconds;
+      while (n > 0) { if (Math.random() < n) spawn(points[i].x, points[i].y, 1.1); n--; }
+    });
+
+    // La cabeza suelta chispas hacia arriba (la estela) mientras avanza
+    const p = charge.p;
+    if (p > 0.002 && p < 0.998) {
+      const y = trackTop + p * trackH;
+      let n = HEAD_RATE * seconds * Math.min(1, 0.15 + headSpeed / 4);
+      while (n > 0) { if (Math.random() < n) spawn(trackX, y, 1.8, 1.6, -Math.PI / 2); n--; }
+    }
+    headSpeed *= 0.9;
+  };
+
+  const step = (dt) => {
+    for (let i = 0; i < alive; i++) {
+      life[i] -= dt;
+      if (life[i] <= 0) {
+        // se cambia por la última viva: el array sigue compacto
+        const j = --alive;
+        px[i] = px[j]; py[i] = py[j]; vx[i] = vx[j]; vy[i] = vy[j];
+        life[i] = life[j]; ttl[i] = ttl[j]; size[i] = size[j];
+        i--;
+        continue;
+      }
+      const drag = Math.pow(0.95, dt);
+      vx[i] *= drag;
+      vy[i] = vy[i] * drag - 0.012 * dt; // la energía tiende a subir
+      px[i] += vx[i] * dt;
+      py[i] += vy[i] * dt;
+    }
+  };
+
+  const draw = () => {
+    ctx.clearRect(0, 0, w, h);
+    ctx.globalCompositeOperation = "lighter";
+    for (let i = 0; i < alive; i++) {
+      const t = life[i] / ttl[i];
+      const s = size[i] * (0.4 + 0.6 * t);
+      ctx.globalAlpha = t * t;
+      ctx.drawImage(sprite, px[i] - s / 2, py[i] - s / 2, s, s);
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = "source-over";
+  };
+
+  // Bucle propio que solo corre con la línea en pantalla
+  let rafId = 0;
+  let last = 0;
+  const loop = (time) => {
+    const dt = Math.min((time - last) / 16.67, 3);
+    last = time;
+    if (charge.p !== charge.target) {
+      charge.p += (charge.target - charge.p) * (1 - Math.pow(0.9, dt));
+      if (Math.abs(charge.target - charge.p) < 0.0005) charge.p = charge.target; // remata sin quedarse en 0.9998
+      apply();
+    }
+    emit(dt);
+    step(dt);
+    draw();
+    rafId = requestAnimationFrame(loop);
+  };
+
+  new IntersectionObserver(([entry]) => {
+    if (entry.isIntersecting && !rafId) {
+      last = performance.now();
+      rafId = requestAnimationFrame(loop);
+    } else if (!entry.isIntersecting && rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = 0;
+      alive = 0;
+      ctx.clearRect(0, 0, w, h);
+      // fuera de pantalla se salta directamente al estado final, sin estallidos
+      lastP = charge.p = charge.target;
+      apply();
+    }
+  }).observe(timeline);
 }
