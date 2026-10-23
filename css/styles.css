@@ -1780,14 +1780,17 @@ ul {
 }
 
 /* =========================================================
-   TRAYECTORIA: línea temporal con nodos de energía
+   TRAYECTORIA: línea de energía con nodos que se encienden
+   El rayo, las órbitas, los arcos y las chispas se pintan en canvas (.timeline__fx);
+   aquí van el nodo, la tarjeta y el año gigante de fondo
    ========================================================= */
 
-/* Leyenda: círculo = experiencia, rombo = formación (la misma forma que sus nodos) */
+/* Leyenda: cada tipo con la forma de su nodo */
 .timeline-legend {
   display: flex;
-  gap: 1.5rem;
-  margin: -1rem 0 3rem;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin: -1rem 0 3.5rem;
   font-size: 0.85rem;
   color: var(--text-muted);
 }
@@ -1795,37 +1798,40 @@ ul {
 .timeline-legend li {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.55rem;
 }
 
 .timeline-legend i {
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   background: var(--accent);
   border-radius: 50%;
-  box-shadow: 0 0 8px var(--accent-glow);
+  filter: drop-shadow(0 0 4px var(--accent));
 }
 
 .timeline-legend [data-kind="edu"] i {
   border-radius: 2px;
-  transform: rotate(45deg);
+  transform: rotate(45deg) scale(0.9);
 }
 
-/* --x: posición horizontal de la línea. JS mide el centro del primer y del último nodo
-   y deja en --track-top / --track-h el tramo que recorre la energía */
+.timeline-legend [data-kind="proj"] i {
+  border-radius: 0;
+  clip-path: polygon(25% 4%, 75% 4%, 100% 50%, 75% 96%, 25% 96%, 0 50%);
+}
+
+/* --x: dónde va la línea. JS deja en --track-top / --track-h el tramo entre el primer y el último nodo */
 .timeline {
   --x: 50%;
-  --progress: 0;
-  --node: 18px;
+  --node: 26px;
   position: relative;
   isolation: isolate;
 }
 
-.timeline__particles {
+.timeline__fx {
   position: absolute;
-  inset: -80px 0;
+  inset: -100px 0;
   width: 100%;
-  height: calc(100% + 160px);
+  height: calc(100% + 200px);
   z-index: 2;
   pointer-events: none;
 }
@@ -1837,32 +1843,20 @@ ul {
   height: var(--track-h, 100%);
   width: 2px;
   margin-left: -1px;
-  background: linear-gradient(180deg, var(--border), rgba(255, 255, 255, 0.12) 50%, var(--border));
-  border-radius: 2px;
+  background: repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0 6px, transparent 6px 14px);
 }
 
+/* Solo sin animaciones: la línea aparece ya cargada (con animaciones la pinta el canvas) */
 .timeline__fill {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 30%, transparent), var(--accent));
-  box-shadow: 0 0 10px var(--accent-glow), 0 0 22px var(--accent-soft);
-  border-radius: inherit;
-  transform-origin: top;
-  transform: scaleY(var(--progress));
+  display: none;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent-glow);
 }
 
-/* Cabeza de la carga: un punto blanco-naranja que baja con el scroll */
-.timeline__head {
-  position: absolute;
-  left: 50%;
-  top: calc(var(--progress) * 100%);
-  width: 10px;
-  height: 10px;
-  margin: -5px 0 0 -5px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 6px 2px var(--accent), 0 0 22px 6px var(--accent-glow);
-  opacity: calc(var(--progress) * 40);
+.timeline.is-static .timeline__fill {
+  display: block;
 }
 
 .timeline__list {
@@ -1874,28 +1868,71 @@ ul {
   position: relative;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  column-gap: 4.5rem;
+  column-gap: 7rem;
 }
 
-/* En escritorio las tarjetas se alternan y se solapan un poco con la del otro lado */
 .checkpoint + .checkpoint {
-  margin-top: -2.25rem;
+  margin-top: 4.5rem;
 }
 
 .checkpoint:nth-child(odd) .checkpoint__card {
   grid-column: 1;
-  text-align: right;
 }
 
 .checkpoint:nth-child(even) .checkpoint__card {
   grid-column: 2;
 }
 
+/* ---------- Año gigante, al otro lado de la línea ---------- */
+.checkpoint__year {
+  position: absolute;
+  top: calc(2rem + var(--node) / 2);
+  translate: 0 -50%;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(4rem, 9vw, 7.5rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(255, 255, 255, 0.07);
+  /* franja de luz que recorre el texto cuando el nodo está encendido */
+  background: linear-gradient(105deg, transparent 42%, var(--accent) 50%, transparent 58%) 120% 0 / 260% 100% no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  pointer-events: none;
+  user-select: none;
+  transition: -webkit-text-stroke-color 0.8s;
+}
+
+.checkpoint:nth-child(odd) .checkpoint__year {
+  left: calc(var(--x) + 5rem);
+}
+
+.checkpoint:nth-child(even) .checkpoint__year {
+  right: calc(100% - var(--x) + 5rem);
+}
+
+.checkpoint.is-active .checkpoint__year {
+  -webkit-text-stroke-color: color-mix(in srgb, var(--accent) 38%, transparent);
+  animation: year-shine 4.5s var(--ease) infinite;
+}
+
+@keyframes year-shine {
+  0% {
+    background-position: 120% 0;
+  }
+
+  60%,
+  100% {
+    background-position: -20% 0;
+  }
+}
+
 /* ---------- Nodo ---------- */
 .checkpoint__node {
   position: absolute;
   left: var(--x);
-  top: 1.55rem;
+  top: 2rem;
   width: var(--node);
   height: var(--node);
   margin-left: calc(var(--node) / -2);
@@ -1903,19 +1940,21 @@ ul {
   place-items: center;
 }
 
-/* Halo exterior: anillo discontinuo que gira cuando el nodo está cargado */
+/* Anillo de energía: un arco de luz que gira alrededor del núcleo */
 .checkpoint__node::before {
   content: "";
   position: absolute;
-  inset: -9px;
+  inset: -10px;
   border-radius: 50%;
-  border: 1px dashed color-mix(in srgb, var(--accent) 60%, transparent);
+  background: conic-gradient(from 0deg, transparent 0 55%, var(--accent) 85%, #fff 92%, transparent 93%);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
   opacity: 0;
-  transform: scale(0.4);
-  transition: opacity 0.5s, transform 0.7s var(--ease);
+  scale: 0.3;
+  transition: opacity 0.4s, scale 0.8s var(--ease);
 }
 
-/* Onda que se expande en bucle (latido) */
+/* Onda que se expande en bucle */
 .checkpoint__node::after {
   content: "";
   position: absolute;
@@ -1930,183 +1969,255 @@ ul {
   height: 100%;
   border-radius: 50%;
   background: var(--bg-elev);
-  border: 2px solid rgba(255, 255, 255, 0.18);
-  transition: background 0.4s, border-color 0.4s, box-shadow 0.6s, transform 0.6s var(--ease);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.16);
+  transition: background 0.35s, box-shadow 0.35s, scale 0.6s var(--ease);
 }
 
 .checkpoint[data-kind="edu"] .checkpoint__core {
-  border-radius: 3px;
-  transform: rotate(45deg) scale(0.86);
+  border-radius: 4px;
+  rotate: 45deg;
+  scale: 0.82;
 }
 
-.checkpoint[data-kind="edu"] .checkpoint__node::after {
-  border-radius: 4px;
+.checkpoint[data-kind="proj"] .checkpoint__core {
+  border-radius: 0;
+  clip-path: polygon(25% 4%, 75% 4%, 100% 50%, 75% 96%, 25% 96%, 0 50%);
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: none;
+  scale: 1.05;
 }
 
 .checkpoint.is-active .checkpoint__core {
-  background: radial-gradient(circle at 50% 50%, #fff 0 22%, var(--accent) 60%);
-  border-color: var(--accent);
-  box-shadow: 0 0 10px 2px var(--accent-glow), 0 0 32px 6px var(--accent-soft);
+  background: radial-gradient(circle, #fff 0 18%, #ffe0b0 32%, var(--accent) 62%, color-mix(in srgb, var(--accent) 70%, #000) 100%);
+  box-shadow: inset 0 0 0 2px var(--accent);
+  animation: core-breathe 1.8s ease-in-out infinite;
 }
 
 .checkpoint.is-active .checkpoint__node::before {
   opacity: 1;
-  transform: scale(1);
-  animation: node-spin 9s linear infinite;
+  scale: 1;
+  animation: node-spin 1.6s linear infinite;
 }
 
-.checkpoint.is-active .checkpoint__node::after {
-  animation: node-pulse 2.2s var(--ease) infinite;
-}
-
-.checkpoint[data-kind="edu"].is-active .checkpoint__node::after {
-  animation-name: node-pulse-diamond;
-}
-
-/* El último nodo (lo siguiente) late siempre, aunque todavía no le haya llegado la carga */
-.checkpoint--next .checkpoint__core {
-  border-style: dashed;
-  border-color: var(--accent);
-}
-
+.checkpoint.is-active .checkpoint__node::after,
 .checkpoint--next .checkpoint__node::after {
-  animation: node-pulse 2.2s var(--ease) infinite;
+  animation: node-pulse 1.8s var(--ease) infinite;
+}
+
+.checkpoint--next:not(.is-active) .checkpoint__core {
+  box-shadow: inset 0 0 0 2px var(--accent);
+  animation: core-breathe 1.8s ease-in-out infinite;
 }
 
 @keyframes node-spin {
   to {
-    transform: rotate(360deg);
+    rotate: 360deg;
   }
 }
 
 @keyframes node-pulse {
   0% {
-    opacity: 0.8;
-    transform: scale(1);
+    opacity: 0.9;
+    scale: 1;
   }
 
   100% {
     opacity: 0;
-    transform: scale(3.2);
+    scale: 3.4;
   }
 }
 
-@keyframes node-pulse-diamond {
-  0% {
-    opacity: 0.8;
-    transform: rotate(45deg) scale(0.9);
-  }
-
-  100% {
-    opacity: 0;
-    transform: rotate(45deg) scale(2.8);
+/* Solo brillo: "rotate" y "scale" del rombo y el hexágono no se tocan */
+@keyframes core-breathe {
+  50% {
+    filter: brightness(1.35) drop-shadow(0 0 6px var(--accent));
   }
 }
 
 /* ---------- Tarjeta ---------- */
 .checkpoint__card {
+  --mx: 50%;
+  --my: 50%;
   position: relative;
-  padding: 1.15rem 1.35rem 1.25rem;
-  background: var(--surface);
+  padding: 1.35rem 1.5rem 1.45rem;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015));
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  transition: border-color 0.4s, box-shadow 0.5s, background 0.4s;
+  overflow: hidden;
+  transition: border-color 0.5s, box-shadow 0.6s;
+}
+
+/* Borde de luz que da vueltas a la tarjeta encendida */
+@property --spin {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.checkpoint__card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: conic-gradient(from var(--spin), transparent 0 62%, var(--accent) 80%, #fff 84%, transparent 86%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  opacity: 0;
+  transition: opacity 0.6s;
+  pointer-events: none;
+}
+
+.checkpoint.is-active .checkpoint__card::before {
+  opacity: 1;
+  animation: card-spin 5s linear infinite;
+}
+
+@keyframes card-spin {
+  to {
+    --spin: 360deg;
+  }
+}
+
+/* Foco que sigue al ratón */
+.checkpoint__card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(420px circle at var(--mx) var(--my), var(--accent-soft), transparent 45%);
+  opacity: 0;
+  transition: opacity 0.4s;
+  pointer-events: none;
+}
+
+.checkpoint__card:hover::after {
+  opacity: 1;
 }
 
 .checkpoint.is-active .checkpoint__card {
-  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 6%, transparent), 0 18px 50px -30px var(--accent-glow);
+  border-color: color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow: 0 24px 60px -34px var(--accent-glow);
 }
 
-.checkpoint__card:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+.checkpoint__card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .checkpoint__meta {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.35rem;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.75rem;
+  margin-bottom: 0.45rem;
   font-size: 0.78rem;
   color: var(--text-muted);
 }
 
-.checkpoint:nth-child(odd) .checkpoint__meta {
-  justify-content: flex-end;
-}
-
 .checkpoint__kind {
-  padding: 0.12rem 0.55rem;
+  padding: 0.12rem 0.6rem;
   border-radius: 999px;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--accent);
   background: var(--accent-soft);
 }
 
-/* Formación: misma pastilla pero solo con borde, para distinguirla de un vistazo */
-.checkpoint[data-kind="edu"] .checkpoint__kind {
+.checkpoint[data-kind="edu"] .checkpoint__kind,
+.checkpoint[data-kind="proj"] .checkpoint__kind {
   background: transparent;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
-.checkpoint__meta time {
-  font-variant-numeric: tabular-nums;
-}
-
 .checkpoint__title {
   font-family: var(--font-display);
-  font-size: 1.2rem;
+  font-size: clamp(1.25rem, 2.2vw, 1.5rem);
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 1.2;
 }
 
 .checkpoint__place {
-  margin-top: 0.15rem;
+  margin-top: 0.2rem;
   font-size: 0.9rem;
   color: var(--accent);
 }
 
 .checkpoint__desc {
-  margin-top: 0.6rem;
-  font-size: 0.92rem;
+  margin-top: 0.7rem;
+  font-size: 0.93rem;
   color: var(--text-muted);
 }
 
-.checkpoint__desc a {
+.checkpoint__desc a,
+.checkpoint__link {
   color: var(--text);
   border-bottom: 1px solid var(--accent);
   transition: color 0.2s;
 }
 
-.checkpoint__desc a:hover {
+.checkpoint__desc a:hover,
+.checkpoint__link:hover {
   color: var(--accent);
 }
 
-/* Móvil: la línea pasa a la izquierda y todas las tarjetas van a su derecha */
+.checkpoint__link {
+  display: inline-block;
+  margin-top: 0.9rem;
+  font-size: 0.88rem;
+}
+
+.checkpoint__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+}
+
+.checkpoint__tags li {
+  padding: 0.18rem 0.6rem;
+  font-size: 0.75rem;
+  border-radius: 6px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  transition: border-color 0.2s, color 0.2s, translate 0.2s;
+}
+
+.checkpoint__tags li:hover {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  translate: 0 -2px;
+}
+
+/* Con animaciones, las tarjetas esperan a que les llegue la carga (las muestra JS) */
+.js-anim .checkpoint__card {
+  visibility: hidden;
+}
+
+/* Móvil: la línea a la izquierda, todas las tarjetas a su derecha, sin año gigante */
 @media (max-width: 760px) {
   .timeline {
-    --x: 9px;
+    --x: 13px;
+    --node: 22px;
   }
 
   .checkpoint {
     grid-template-columns: 1fr;
-    padding-left: 2.25rem;
+    padding-left: 2.6rem;
   }
 
   .checkpoint + .checkpoint {
-    margin-top: 1.25rem;
+    margin-top: 2rem;
   }
 
   .checkpoint:nth-child(n) .checkpoint__card {
     grid-column: 1;
-    text-align: left;
   }
 
-  .checkpoint:nth-child(n) .checkpoint__meta {
-    justify-content: flex-start;
+  .checkpoint__year {
+    display: none;
   }
 }

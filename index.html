@@ -23,7 +23,7 @@
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.css" />
 
-  <link rel="stylesheet" href="css/styles.css?v=25" />
+  <link rel="stylesheet" href="css/styles.css?v=26" />
 </head>
 
 <body>
@@ -306,8 +306,8 @@
     </section>
 
 
-    <!-- Experiencia y formación juntas en una línea temporal: cada etapa es un nodo de energía
-         que se enciende (y suelta partículas) cuando le llega la carga al hacer scroll -->
+    <!-- Trayectoria: una línea de energía. La carga baja con el scroll, cada nodo se enciende
+         al recibirla y su tarjeta se materializa desde él. Rayos, órbitas y chispas en canvas -->
     <section class="section" id="trayectoria">
       <div class="container">
         <h2 class="section__title reveal"><span class="section__num">03.</span> Trayectoria</h2>
@@ -315,87 +315,77 @@
         <ul class="timeline-legend reveal" aria-label="Leyenda">
           <li data-kind="work"><i aria-hidden="true"></i>Experiencia</li>
           <li data-kind="edu"><i aria-hidden="true"></i>Formación</li>
+          <li data-kind="proj"><i aria-hidden="true"></i>Proyecto</li>
         </ul>
 
         <div class="timeline" id="timeline">
-          <canvas class="timeline__particles" aria-hidden="true"></canvas>
+          <canvas class="timeline__fx" aria-hidden="true"></canvas>
           <div class="timeline__track" aria-hidden="true">
             <span class="timeline__fill"></span>
-            <span class="timeline__head"></span>
           </div>
 
           <ol class="timeline__list">
-            <li class="checkpoint" data-kind="edu">
-              <span class="checkpoint__node" aria-hidden="true"><span class="checkpoint__core"></span></span>
-              <article class="checkpoint__card reveal reveal--left">
-                <p class="checkpoint__meta"><span class="checkpoint__kind">Formación</span><time>2021 – 2022</time></p>
-                <h3 class="checkpoint__title">Bachillerato de Ciencias Sociales</h3>
-              </article>
-            </li>
-
             <li class="checkpoint" data-kind="work">
+              <span class="checkpoint__year" aria-hidden="true">2024</span>
               <span class="checkpoint__node" aria-hidden="true"><span class="checkpoint__core"></span></span>
-              <article class="checkpoint__card reveal reveal--right">
-                <p class="checkpoint__meta"><span class="checkpoint__kind">Experiencia</span><time>2022</time></p>
-                <h3 class="checkpoint__title">Mozo de almacén</h3>
-                <p class="checkpoint__place">ETT</p>
-                <p class="checkpoint__desc">Carga y descarga de mercancía, ubicación del material y preparación de pedidos con PDA.</p>
-              </article>
-            </li>
-
-            <li class="checkpoint" data-kind="work">
-              <span class="checkpoint__node" aria-hidden="true"><span class="checkpoint__core"></span></span>
-              <article class="checkpoint__card reveal reveal--left">
-                <p class="checkpoint__meta"><span class="checkpoint__kind">Experiencia</span><time>2022</time></p>
-                <h3 class="checkpoint__title">Auxiliar de cocina</h3>
-                <p class="checkpoint__place">Papa John's Pizzería</p>
-                <p class="checkpoint__desc">Elaboración y cuidado de los productos, control del almacén y mantenimiento del establecimiento.</p>
-              </article>
-            </li>
-
-            <li class="checkpoint" data-kind="edu">
-              <span class="checkpoint__node" aria-hidden="true"><span class="checkpoint__core"></span></span>
-              <article class="checkpoint__card reveal reveal--right">
-                <p class="checkpoint__meta"><span class="checkpoint__kind">Formación</span><time>2023 – 2024</time></p>
-                <h3 class="checkpoint__title">Técnico Superior en Administración y Finanzas</h3>
-              </article>
-            </li>
-
-            <li class="checkpoint" data-kind="work">
-              <span class="checkpoint__node" aria-hidden="true"><span class="checkpoint__core"></span></span>
-              <article class="checkpoint__card reveal reveal--left">
-                <p class="checkpoint__meta"><span class="checkpoint__kind">Experiencia</span><time>2023 – 2024</time></p>
-                <h3 class="checkpoint__title">Socorrista acuático profesional</h3>
-                <p class="checkpoint__place">Socorrismo y mantenimiento de piscinas</p>
-                <p class="checkpoint__desc">Protección y seguridad de los bañistas, supervisión y mantenimiento de la piscina, control del cloro y el pH.</p>
-              </article>
-            </li>
-
-            <li class="checkpoint" data-kind="work">
-              <span class="checkpoint__node" aria-hidden="true"><span class="checkpoint__core"></span></span>
-              <article class="checkpoint__card reveal reveal--right">
+              <article class="checkpoint__card">
                 <p class="checkpoint__meta"><span class="checkpoint__kind">Experiencia</span><time>2024</time></p>
                 <h3 class="checkpoint__title">Becario</h3>
                 <p class="checkpoint__place">ADV Soluciones Informáticas</p>
-                <p class="checkpoint__desc">Alta y control de fichas de clientes y proveedores, pedidos, albaranes y facturas, y seguimiento de la cartera de cobros (pagados e impagados).</p>
+                <p class="checkpoint__desc">Primer paso en una empresa del sector: gestión de fichas de clientes y proveedores,
+                  pedidos, albaranes y facturas, y control de la cartera de cobros.</p>
               </article>
             </li>
 
             <li class="checkpoint" data-kind="edu">
+              <span class="checkpoint__year" aria-hidden="true">2025</span>
               <span class="checkpoint__node" aria-hidden="true"><span class="checkpoint__core"></span></span>
-              <article class="checkpoint__card reveal reveal--left">
+              <article class="checkpoint__card">
                 <p class="checkpoint__meta"><span class="checkpoint__kind">Formación</span><time>2024 – 2025</time></p>
-                <h3 class="checkpoint__title">Desarrollo de Aplicaciones Web (DAW)</h3>
-                <p class="checkpoint__desc">Ciclo formativo de grado superior. De aquí salieron <a href="#proyectos">ScriptBay y TSender</a>.</p>
+                <h3 class="checkpoint__title">Desarrollo de Aplicaciones Web</h3>
+                <p class="checkpoint__place">Ciclo Formativo de Grado Superior (DAW)</p>
+                <p class="checkpoint__desc">Del frontend al backend, pasando por bases de datos y despliegue.</p>
+                <ul class="checkpoint__tags">
+                  <li>Java</li><li>Spring Boot</li><li>Angular</li><li>TypeScript</li><li>MySQL</li><li>MongoDB</li><li>Docker</li>
+                </ul>
+              </article>
+            </li>
+
+            <li class="checkpoint" data-kind="proj">
+              <span class="checkpoint__year" aria-hidden="true">DAW</span>
+              <span class="checkpoint__node" aria-hidden="true"><span class="checkpoint__core"></span></span>
+              <article class="checkpoint__card">
+                <p class="checkpoint__meta"><span class="checkpoint__kind">Proyecto</span><time>Equipo de 3</time></p>
+                <h3 class="checkpoint__title">ScriptBay</h3>
+                <p class="checkpoint__desc">Marketplace de scripts con licencias verificadas en blockchain (NFT).</p>
+                <ul class="checkpoint__tags">
+                  <li>React</li><li>Node.js</li><li>Supabase</li><li>Solidity</li><li>Stripe</li>
+                </ul>
+                <a class="checkpoint__link" href="#proyectos">Ver proyecto&nbsp;↗</a>
+              </article>
+            </li>
+
+            <li class="checkpoint" data-kind="proj">
+              <span class="checkpoint__year" aria-hidden="true">TFG</span>
+              <span class="checkpoint__node" aria-hidden="true"><span class="checkpoint__core"></span></span>
+              <article class="checkpoint__card">
+                <p class="checkpoint__meta"><span class="checkpoint__kind">Proyecto</span><time>Trabajo de Fin de Grado</time></p>
+                <h3 class="checkpoint__title">TSender</h3>
+                <p class="checkpoint__desc">dApp Web3 para airdrops masivos de tokens, construida 100% en Python.</p>
+                <ul class="checkpoint__tags">
+                  <li>Python</li><li>Streamlit</li><li>Web3.py</li><li>Solidity</li><li>SQLite</li>
+                </ul>
+                <a class="checkpoint__link" href="#proyectos">Ver proyecto&nbsp;↗</a>
               </article>
             </li>
 
             <li class="checkpoint checkpoint--next" data-kind="next">
+              <span class="checkpoint__year" aria-hidden="true">NEXT</span>
               <span class="checkpoint__node" aria-hidden="true"><span class="checkpoint__core"></span></span>
-              <article class="checkpoint__card reveal reveal--right">
+              <article class="checkpoint__card">
                 <p class="checkpoint__meta"><span class="checkpoint__kind">Próximo checkpoint</span><time>Ahora</time></p>
                 <h3 class="checkpoint__title">¿Tu equipo?</h3>
-                <p class="checkpoint__desc">Busco mi primera oportunidad como desarrollador. <a href="#contacto">Hablemos ↗</a></p>
+                <p class="checkpoint__desc">Busco mi primera oportunidad como desarrollador. <a href="#contacto">Hablemos&nbsp;↗</a></p>
               </article>
             </li>
           </ol>
@@ -419,7 +409,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
-  <script src="js/main.js?v=25"></script>
+  <script src="js/main.js?v=26"></script>
 </body>
 
 </html>
