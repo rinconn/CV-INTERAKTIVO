@@ -2673,20 +2673,110 @@ ul {
   overflow-wrap: anywhere;
 }
 
-/* cuando le llega una onda: destello frío */
+/* mira de caza: cuatro esquinas alrededor de cada presa; al encontrarla se cierran de golpe en rojo */
+@property --c {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
+}
+
+.echo__target {
+  --mira: rgba(255, 163, 26, 0.55);
+  padding: 1.6rem 1.2rem 1.2rem;
+}
+
+.echo__target::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  --c: var(--mira);
+  background:
+    linear-gradient(var(--c), var(--c)) top left / 16px 2px,
+    linear-gradient(var(--c), var(--c)) top left / 2px 16px,
+    linear-gradient(var(--c), var(--c)) top right / 16px 2px,
+    linear-gradient(var(--c), var(--c)) top right / 2px 16px,
+    linear-gradient(var(--c), var(--c)) bottom left / 16px 2px,
+    linear-gradient(var(--c), var(--c)) bottom left / 2px 16px,
+    linear-gradient(var(--c), var(--c)) bottom right / 16px 2px,
+    linear-gradient(var(--c), var(--c)) bottom right / 2px 16px;
+  background-repeat: no-repeat;
+  transition: inset 0.35s var(--ease), --c 0.3s;
+}
+
+.echo__target.is-found::before {
+  animation: mira-lock 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.3);
+}
+
+@keyframes mira-lock {
+  0% { inset: -2.2rem; opacity: 0; --c: #ff2228; }
+  60% { inset: 0.3rem; opacity: 1; --c: #ff2228; }
+}
+
+.echo__target:hover,
+.echo__target:focus-within {
+  --mira: #ff2228;
+}
+
+.echo__target:hover::before,
+.echo__target:focus-within::before {
+  inset: 0.5rem 0.2rem;
+}
+
+.echo__tag {
+  position: absolute;
+  top: 0.35rem;
+  left: 0.9rem;
+  font: 500 0.62rem "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  transition: color 0.3s;
+}
+
+.echo__tag::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 0.45rem;
+  border-radius: 50%;
+  background: #ff2228;
+  box-shadow: 0 0 8px #ff2228;
+  vertical-align: 1px;
+  opacity: 0.35;
+}
+
+.echo__target.is-found .echo__tag::before {
+  opacity: 1;
+  animation: tag-blink 1.4s steps(2, jump-none) infinite;
+}
+
+@keyframes tag-blink {
+  50% { opacity: 0.25; }
+}
+
+.echo__target:hover .echo__tag,
+.echo__target:focus-within .echo__tag {
+  color: #ff6a6e;
+}
+
+/* cuando le llega una onda: sacudida y la letra se parte en rojo y hielo */
 .echo__target.is-ping .echo__label {
-  animation: echo-ping 0.9s var(--ease);
+  animation: echo-ping 0.55s steps(1);
 }
 
 @keyframes echo-ping {
-  20% {
-    color: #cde8ff;
-    text-shadow: 0 0 30px rgba(80, 180, 255, 0.9), 0 0 4px #fff;
-  }
+  0% { translate: -4px 1px; text-shadow: 4px 0 #ff2228, -4px 0 #50b4ff; color: #fff; }
+  15% { translate: 5px -2px; text-shadow: -5px 0 #ff2228, 5px 0 #50b4ff; }
+  30% { translate: -3px 0; text-shadow: 3px 1px #ff2228, -3px -1px #50b4ff; clip-path: inset(10% 0 40% 0); }
+  45% { translate: 2px 1px; text-shadow: -2px 0 #ff2228, 2px 0 #50b4ff; clip-path: inset(45% 0 5% 0); }
+  60% { translate: -1px 0; text-shadow: 1px 0 #ff2228, -1px 0 #50b4ff; clip-path: none; }
+  80% { translate: 0 0; text-shadow: 0 0 22px rgba(255, 34, 40, 0.7); }
+  100% { translate: 0 0; text-shadow: none; }
 }
 
-.echo__copy,
-.echo__vcard {
+.echo__copy {
   font: 500 0.72rem "JetBrains Mono", ui-monospace, monospace;
   color: var(--text-muted);
   background: none;
@@ -2707,14 +2797,303 @@ ul {
 }
 
 .echo__copy:hover,
-.echo__vcard:hover,
 .echo__copy.is-done {
   color: #50b4ff;
 }
 
+/* botón de guardar contacto: píldora con borde de fuego a hielo y un brillo que la cruza */
 .echo__vcard {
-  margin-top: clamp(2rem, 5vh, 3rem);
-  font-size: 0.8rem;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: clamp(2.5rem, 6vh, 3.5rem);
+  padding: 0.55rem 0.55rem 0.55rem 1.1rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--bg-elev), var(--bg-elev)) padding-box,
+    linear-gradient(100deg, rgba(255, 163, 26, 0.6), rgba(255, 163, 26, 0.12) 45%, rgba(80, 180, 255, 0.6)) border-box;
+  color: var(--text);
+  font: 600 0.95rem var(--font-display);
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
+  box-shadow: 0 12px 40px -18px rgba(255, 163, 26, 0.55);
+  transition: box-shadow 0.4s var(--ease), transform 0.4s var(--ease);
+}
+
+.echo__vcard::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.12) 50%, transparent 70%);
+  translate: -100% 0;
+  transition: translate 0.8s var(--ease);
+}
+
+.echo__vcard:hover,
+.echo__vcard:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 0 0 4px rgba(80, 180, 255, 0.08), 0 16px 44px -14px rgba(80, 180, 255, 0.6);
+}
+
+.echo__vcard:hover::before,
+.echo__vcard:focus-visible::before {
+  translate: 100% 0;
+}
+
+.echo__vcard svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.echo__vcard-icon {
+  width: 1.3rem;
+  height: 1.3rem;
+  color: var(--accent);
+  transition: color 0.3s;
+}
+
+.echo__vcard:hover .echo__vcard-icon {
+  color: #50b4ff;
+}
+
+.echo__vcard-ext {
+  font: 500 0.7rem "JetBrains Mono", ui-monospace, monospace;
+  color: var(--accent);
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(255, 163, 26, 0.12);
+}
+
+.echo__vcard-arrow {
+  display: grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  color: #0b0d12;
+  background: linear-gradient(140deg, #ffd070, var(--accent));
+  transition: background 0.3s;
+}
+
+.echo__vcard-arrow svg {
+  width: 1rem;
+  height: 1rem;
+  stroke-width: 2.2;
+}
+
+.echo__vcard:hover .echo__vcard-arrow {
+  background: linear-gradient(140deg, #cde8ff, #50b4ff);
+}
+
+.echo__vcard:hover .echo__vcard-arrow svg {
+  animation: vcard-drop 0.9s var(--ease) infinite;
+}
+
+@keyframes vcard-drop {
+  0% { translate: 0 -120%; opacity: 0; }
+  35%, 70% { translate: 0 0; opacity: 1; }
+  100% { translate: 0 120%; opacity: 0; }
+}
+
+/* carga: una barra de energía llena el botón mientras estás encima; al tope, tiembla */
+.echo__vcard::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(90deg, rgba(255, 84, 46, 0.25), rgba(255, 163, 26, 0.35) 60%, rgba(80, 180, 255, 0.45));
+  transform-origin: left;
+  transform: scaleX(0);
+  transition: transform 0.35s var(--ease);
+}
+
+.echo__vcard.is-charging::after {
+  transform: scaleX(1);
+  transition: transform 1s cubic-bezier(0.5, 0, 0.9, 0.6);
+}
+
+.echo__vcard.is-charged {
+  animation: vcard-tremble 0.09s linear infinite;
+  box-shadow: 0 0 0 5px rgba(80, 180, 255, 0.14), 0 0 46px -4px rgba(80, 180, 255, 0.8), 0 0 90px -20px rgba(255, 163, 26, 0.9);
+}
+
+.echo__vcard.is-charged .echo__vcard-arrow {
+  background: #fff;
+  box-shadow: 0 0 18px #50b4ff;
+}
+
+@keyframes vcard-tremble {
+  0% { translate: 0.6px -0.4px; }
+  25% { translate: -0.7px 0.5px; }
+  50% { translate: 0.5px 0.6px; }
+  75% { translate: -0.4px -0.6px; }
+}
+
+/* roto: desaparece en esquirlas (las pinta JS) y luego se recompone */
+.echo__vcard.is-broken {
+  opacity: 0;
+  scale: 0.7;
+  filter: blur(6px);
+  pointer-events: none;
+  transition: none;
+}
+
+.echo__vcard.is-reborn {
+  animation: vcard-reborn 0.7s var(--ease);
+}
+
+@keyframes vcard-reborn {
+  from { opacity: 0; scale: 0.85; filter: blur(8px); }
+}
+
+.echo__vcard.is-saved .echo__vcard-arrow {
+  background: linear-gradient(140deg, #cde8ff, #50b4ff);
+}
+
+.echo__shard {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+  background: linear-gradient(130deg, #ffd070, var(--accent) 50%, #50b4ff);
+  box-shadow: 0 0 10px rgba(255, 163, 26, 0.8);
+}
+
+.echo__shard.is-spark {
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 8px 2px #50b4ff;
+}
+
+/* LA VÍA: el tren cruza una sola vez, de izquierda a derecha, y deja dicho que ya pasó */
+.echo__rail {
+  position: relative;
+  width: min(1100px, 100%);
+  height: 2.6rem;
+  margin-top: 1.4rem;
+  container-type: inline-size;
+  overflow: hidden;
+  -webkit-mask: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  mask: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+
+/* raíl y traviesas */
+.echo__rail::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0.45rem;
+  height: 5px;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.12) 0 2px, transparent 2px 14px);
+}
+
+.echo__train {
+  position: absolute;
+  left: 0;
+  bottom: calc(0.45rem + 3px);
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  transform: translateX(calc(-100% - 260px)); /* fuera del todo, foco incluido */
+  will-change: transform;
+}
+
+.echo__rail.is-passing .echo__train {
+  animation: train-pass 2.6s cubic-bezier(0.35, 0, 0.7, 1) forwards;
+}
+
+@keyframes train-pass {
+  to { transform: translateX(calc(100cqw + 300px)); } /* que salga también la estela */
+}
+
+/* estela de velocidad detrás del último vagón */
+.echo__train::before {
+  content: "";
+  position: absolute;
+  right: 100%;
+  bottom: 2px;
+  width: 260px;
+  height: 14px;
+  background: linear-gradient(90deg, transparent, rgba(255, 163, 26, 0.18));
+  filter: blur(4px);
+}
+
+.echo__car,
+.echo__loco {
+  position: relative;
+  height: 1.35rem;
+  border-radius: 4px;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 8px, rgba(255, 208, 112, 0.95) 8px 17px, transparent 17px 21px) 0 4px / 100% 6px no-repeat,
+    linear-gradient(#1b1f27, #0f1217);
+  border: 1px solid rgba(255, 163, 26, 0.55);
+  box-shadow: 0 0 14px -2px rgba(255, 163, 26, 0.45), inset 0 -3px 0 rgba(255, 84, 46, 0.5);
+}
+
+.echo__car {
+  width: 92px;
+}
+
+/* locomotora con el morro inclinado y el foco de hielo por delante */
+.echo__loco {
+  width: 118px;
+  border-radius: 4px 28px 4px 4px;
+  background:
+    linear-gradient(100deg, transparent 62%, rgba(80, 180, 255, 0.9) 63% 74%, transparent 75%) 0 4px / 100% 6px no-repeat,
+    linear-gradient(#1b1f27, #0f1217);
+}
+
+.echo__loco::after {
+  content: "";
+  position: absolute;
+  left: 100%;
+  bottom: 3px;
+  width: 220px;
+  height: 16px;
+  background: linear-gradient(90deg, rgba(205, 232, 255, 0.85), rgba(80, 180, 255, 0.25) 30%, transparent);
+  clip-path: polygon(0 35%, 100% 0, 100% 100%, 0 65%);
+  filter: blur(1px);
+}
+
+.echo__gone {
+  position: absolute;
+  left: 50%;
+  bottom: 1rem;
+  translate: -50% 0;
+  white-space: nowrap;
+  font: 500 0.72rem "JetBrains Mono", ui-monospace, monospace;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  opacity: 0;
+  transition: opacity 1s var(--ease) 0.2s;
+}
+
+.echo__rail.is-gone .echo__gone {
+  opacity: 1;
+}
+
+/* mientras pasa, el título recibe el golpe de aire */
+.echo.is-passing .echo__title span {
+  animation: title-gust 0.9s var(--ease);
+}
+
+@keyframes title-gust {
+  30% { letter-spacing: 0.04em; filter: blur(0.6px) drop-shadow(0 0 14px rgba(255, 163, 26, 0.7)); }
+}
+
+@media (max-width: 760px) {
+  .echo__car { width: 64px; }
+  .echo__loco { width: 84px; }
+  .echo__gone { font-size: 0.62rem; }
 }
 
 .contact__toast {
@@ -2752,6 +3131,7 @@ ul {
 
   .echo__targets {
     grid-template-columns: 1fr;
-    gap: 2.2rem;
+    gap: 1.4rem;
+    padding-inline: 1rem;
   }
 }

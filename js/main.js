@@ -2497,25 +2497,143 @@ function initContact() {
       }
     });
   });
+  const saveVcard = () => {
+    const vcard = [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      "N:Rincón Mateeva;Enrique;;;",
+      "FN:Enrique Rincón",
+      "TITLE:Full Stack Developer",
+      "EMAIL;TYPE=INTERNET:rincon.enriquemv@gmail.com",
+      "URL:https://www.linkedin.com/in/enrique-rincón-mateeva-264845363",
+      "URL:https://github.com/rinconn",
+      "END:VCARD",
+    ].join("\r\n");
+    const url = URL.createObjectURL(new Blob([vcard], { type: "text/vcard;charset=utf-8" }));
+    Object.assign(document.createElement("a"), { href: url, download: "enrique-rincon.vcf" }).click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    say("> contacto guardado");
+  };
+
+  /* ----- Guardar contacto: carga energía mientras estás encima y al pulsar revienta en esquirlas ----- */
+  const CHARGE = 1000; // ms hasta el tope (igual que la transición del CSS)
   document.querySelectorAll("[data-vcard]").forEach((btn) => {
+    const text = btn.querySelector(".echo__vcard-text");
+    let chargeStart = 0, chargeTimer, busy = false;
+    const charge = () => {
+      if (busy || btn.classList.contains("is-charging")) return;
+      chargeStart = performance.now();
+      btn.classList.add("is-charging");
+      chargeTimer = setTimeout(() => btn.classList.add("is-charged"), CHARGE);
+    };
+    const discharge = () => {
+      if (busy) return;
+      clearTimeout(chargeTimer);
+      btn.classList.remove("is-charging", "is-charged");
+    };
+    const shatter = () => {
+      const s = stage.getBoundingClientRect(), b = btn.getBoundingClientRect();
+      const ox = b.left - s.left, oy = b.top - s.top;
+      const cxB = ox + b.width / 2, cyB = oy + b.height / 2;
+      for (let i = 0; i < 46; i++) {
+        const spark = i >= 30;
+        const el = document.createElement("span");
+        el.className = spark ? "echo__shard is-spark" : "echo__shard";
+        const size = spark ? 3 + Math.random() * 3 : 8 + Math.random() * 18;
+        const x = ox + Math.random() * b.width, y = oy + Math.random() * b.height;
+        const pts = Array.from({ length: 3 }, () => `${(Math.random() * 100) | 0}% ${(Math.random() * 100) | 0}%`).join(",");
+        Object.assign(el.style, {
+          left: `${x - size / 2}px`,
+          top: `${y - size / 2}px`,
+          width: `${size}px`,
+          height: `${size}px`,
+          clipPath: spark ? "" : `polygon(${pts})`,
+        });
+        stage.appendChild(el);
+        const a = Math.atan2(y - cyB, x - cxB) + (Math.random() - 0.5) * 0.8;
+        const d = (spark ? 120 : 60) + Math.random() * (spark ? 200 : 140);
+        el.animate(
+          [
+            { transform: "translate(0, 0) rotate(0deg)", opacity: 1 },
+            { transform: `translate(${Math.cos(a) * d}px, ${Math.sin(a) * d + 60}px) rotate(${(Math.random() - 0.5) * 720}deg)`, opacity: 0 },
+          ],
+          { duration: 900 + Math.random() * 600, easing: "cubic-bezier(.15,.7,.35,1)" }
+        ).onfinish = () => el.remove();
+      }
+      stage.dispatchEvent(new CustomEvent("echo:burst", { detail: { x: cxB, y: cyB } }));
+    };
+    const burst = () => {
+      busy = true;
+      saveVcard();
+      if (prefersReducedMotion) {
+        busy = false;
+        discharge();
+        return;
+      }
+      shatter();
+      btn.classList.remove("is-charging", "is-charged");
+      btn.classList.add("is-broken");
+      setTimeout(() => {
+        text.textContent = "Guardado ✓";
+        btn.classList.remove("is-broken");
+        btn.classList.add("is-reborn", "is-saved");
+      }, 1400);
+      setTimeout(() => {
+        text.textContent = "Guardar contacto";
+        btn.classList.remove("is-reborn", "is-saved");
+        busy = false;
+      }, 4200);
+    };
+    btn.addEventListener("pointerenter", charge);
+    btn.addEventListener("focus", charge);
+    btn.addEventListener("pointerleave", discharge);
+    btn.addEventListener("blur", discharge);
     btn.addEventListener("click", () => {
-      const vcard = [
-        "BEGIN:VCARD",
-        "VERSION:3.0",
-        "N:Rincón Mateeva;Enrique;;;",
-        "FN:Enrique Rincón",
-        "TITLE:Full Stack Developer",
-        "EMAIL;TYPE=INTERNET:rincon.enriquemv@gmail.com",
-        "URL:https://www.linkedin.com/in/enrique-rincón-mateeva-264845363",
-        "URL:https://github.com/rinconn",
-        "END:VCARD",
-      ].join("\r\n");
-      const url = URL.createObjectURL(new Blob([vcard], { type: "text/vcard;charset=utf-8" }));
-      Object.assign(document.createElement("a"), { href: url, download: "enrique-rincon.vcf" }).click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      say("> contacto guardado");
+      if (busy) return;
+      if (btn.classList.contains("is-charged")) return burst(); // cargado del todo: revienta ya
+      // sin carga completa (en táctil o con un clic rápido) termina de cargarse antes de reventar
+      charge();
+      const left = prefersReducedMotion ? 0 : Math.max(250, CHARGE - (performance.now() - chargeStart));
+      busy = true;
+      setTimeout(() => {
+        btn.classList.add("is-charged");
+        setTimeout(burst, prefersReducedMotion ? 0 : 160);
+      }, left);
     });
   });
+
+  /* ----- La vía: el tren cruza una sola vez, cuando la vía se ve y el murciélago ya ha encontrado todo ----- */
+  const rail = stage.querySelector(".echo__rail");
+  if (rail) {
+    if (prefersReducedMotion) rail.classList.add("is-gone");
+    else {
+      let seen = false, ready = false, gone = false;
+      const go = () => {
+        if (!seen || !ready || gone) return;
+        gone = true;
+        setTimeout(() => {
+          rail.classList.add("is-passing");
+          setTimeout(() => stage.classList.add("is-passing"), 900); // el golpe de aire llega cuando pasa por el centro
+        }, 700);
+      };
+      const io = new IntersectionObserver(
+        ([e]) => {
+          seen = e.isIntersecting;
+          go();
+        },
+        { threshold: 1 }
+      );
+      io.observe(rail);
+      stage.addEventListener("echo:ready", () => {
+        ready = true;
+        go();
+      });
+      rail.querySelector(".echo__train").addEventListener("animationend", () => {
+        rail.classList.add("is-gone");
+        stage.classList.remove("is-passing");
+      });
+    }
+  }
 
   /* ----- Escena ----- */
   const canvas = stage.querySelector(".echo__canvas");
@@ -2547,35 +2665,40 @@ function initContact() {
     x.fillRect(0, 0, 64, 64);
     return c;
   };
-  const ICE = [80, 180, 255], AMBER = [255, 163, 26];
-  // por tipo de chispa: 0 borde (oro), 1 huesos (ámbar), 2 membrana (brasa)
-  const SPR = [makeSprite([255, 208, 112]), makeSprite(AMBER), makeSprite([255, 84, 46])];
+  const ICE = [80, 180, 255], AMBER = [255, 163, 26], RED = [255, 34, 40];
+  // por tipo de chispa: 0 borde (oro), 1 huesos (ámbar), 2 membrana (sangre), 3 colmillos (blanco caliente)
+  const SPR = [makeSprite([255, 208, 112]), makeSprite(AMBER), makeSprite([225, 18, 32]), makeSprite([255, 236, 214])];
   const SPR_ICE = makeSprite(ICE);
+  const SPR_RED = makeSprite(RED);
   const rgba = ([r, g, b], a) => `rgba(${r}, ${g}, ${b}, ${a})`;
 
   /* ----- Silueta (unidades: las alas van de -1 a 1, la y hacia abajo) ----- */
   // mitad derecha, de la cabeza a los pies: [x, y] o [x, y, cx, cy] si llega con una curva
+  // alas en V como un tatuaje gótico: cuerpo flaco acabado en pico, orejas enormes, brazo fino que sube
+  // hasta la muñeca (con la garra hacia dentro) y festones hundidos que dejan las puntas colgando
   const RIGHT = [
-    [0, -0.13], [0.035, -0.15], [0.075, -0.31], [0.105, -0.14],
-    [0.17, -0.12, 0.13, -0.12],
-    [0.49, -0.37, 0.3, -0.3], [0.545, -0.315], // muñeca con su garra
-    [1, -0.2, 0.78, -0.33],
-    [0.9, 0.07],
-    [0.68, 0.2, 0.8, 0.02],
-    [0.44, 0.26, 0.56, 0.12],
-    [0.16, 0.2, 0.3, 0.14],
-    [0.075, 0.31], [0.035, 0.25], [0, 0.29],
+    [0, -0.1], [0.022, -0.125], [0.072, -0.4], [0.078, -0.11], // oreja
+    [0.095, -0.06],
+    [0.47, -0.42, 0.3, -0.16], [0.4, -0.5], [0.52, -0.455], // brazo y garra de la muñeca
+    [1, -0.32, 0.8, -0.52],
+    [0.93, -0.01, 0.86, -0.2],
+    [0.76, 0.15, 0.77, -0.02],
+    [0.56, 0.34, 0.58, 0.1],
+    [0.38, 0.12, 0.44, 0.11],
+    [0.17, 0.0, 0.25, 0.03],
+    [0.06, 0.06],
+    [0.045, 0.2, 0.065, 0.13], [0, 0.36], // cuerpo en pico
   ];
-  const SHOULDER = [0.15, -0.1], WRIST = [0.53, -0.315];
+  const SHOULDER = [0.08, -0.05], WRIST = [0.5, -0.43];
   // huesos: brazo hasta la muñeca y de ahí los dedos hasta cada punta del ala (algo curvados)
   const BONES = [
-    [SHOULDER, WRIST, 0.02],
-    [WRIST, [1, -0.2], -0.03],
-    [WRIST, [0.9, 0.07], -0.03],
-    [WRIST, [0.68, 0.2], -0.025],
-    [WRIST, [0.44, 0.26], 0.02],
+    [SHOULDER, WRIST, 0.05],
+    [WRIST, [1, -0.32], -0.04],
+    [WRIST, [0.93, -0.01], -0.035],
+    [WRIST, [0.76, 0.15], -0.03],
+    [WRIST, [0.56, 0.34], -0.02],
   ];
-  const K = 400, MW = 2 * K + 20, MH = Math.round(0.72 * K), OX = MW / 2, OY = 0.36 * K;
+  const K = 400, MW = 2 * K + 20, MH = Math.round(0.88 * K), OX = MW / 2, OY = 0.52 * K;
   const mask = document.createElement("canvas");
   mask.width = MW;
   mask.height = MH;
@@ -2594,8 +2717,8 @@ function initContact() {
     qx === undefined ? m.lineTo(-x, y) : m.quadraticCurveTo(-qx, qy, -x, y);
   }
   m.fill();
-  m.beginPath(); m.ellipse(0, -0.07, 0.095, 0.085, 0, 0, Math.PI * 2); m.fill();
-  m.beginPath(); m.ellipse(0, 0.06, 0.085, 0.16, 0, 0, Math.PI * 2); m.fill();
+  m.beginPath(); m.ellipse(0, -0.06, 0.062, 0.068, 0, 0, Math.PI * 2); m.fill();
+  m.beginPath(); m.ellipse(0, 0.07, 0.05, 0.13, 0, 0, Math.PI * 2); m.fill();
   const alpha = m.getImageData(0, 0, MW, MH).data;
   const inside = (x, y) => {
     const px = Math.round(x * K + OX), py = Math.round(y * K + OY);
@@ -2608,9 +2731,11 @@ function initContact() {
     const side = Math.sign(ux) || 1;
     parts.push({
       ux, uy, kind, side,
-      w: Math.min(1, Math.max(0, (Math.abs(ux) - 0.13) / 0.87)), // cuánto se mueve con el aleteo
-      size: (kind === 1 ? 3 : kind === 0 ? 3.1 : 2.5) * (mobile ? 0.8 : 1),
+      w: Math.min(1, Math.max(0, (Math.abs(ux) - 0.08) / 0.92)), // cuánto se mueve con el aleteo
+      size: [3.1, 3, 2.5, 2.4][kind] * (mobile ? 0.8 : 1),
       ph: Math.random() * Math.PI * 2,
+      ang: Math.random() * Math.PI * 2, // rumbo de la sangre que corre por la membrana
+      spd: 0.5 + Math.random(),
       // de dónde sale en la intro (fracción del escenario) y cuándo
       sx: Math.random(), sy: Math.random() * 0.9,
       delay: Math.abs(ux) * 0.7 + Math.random() * 0.5,
@@ -2618,14 +2743,14 @@ function initContact() {
     });
   };
   const g = mobile ? 0.013 : 0.0095;
-  for (let y = -0.35; y < 0.34; y += g) {
+  for (let y = -0.51; y < 0.35; y += g) {
     for (let x = -1.02; x < 1.02; x += g) {
       const px = x + (Math.random() - 0.5) * g * 0.6, py = y + (Math.random() - 0.5) * g * 0.6;
       if (!inside(px, py)) continue;
       const e = g * 1.1;
       const edge = !inside(px + e, py) || !inside(px - e, py) || !inside(px, py + e) || !inside(px, py - e);
       if (edge) add(px, py, 0);
-      else if (Math.random() < 0.16) add(px, py, 2);
+      else if (Math.random() < 0.24) add(px, py, 2);
     }
   }
   for (const [[ax, ay], [bx, by], bend] of BONES) {
@@ -2636,6 +2761,16 @@ function initContact() {
       for (const s of [1, -1]) add(s * (ax + (bx - ax) * t + nx * k), ay + (by - ay) * t + ny * k, 1);
     }
   }
+  // colmillos: dos triángulos que bajan de la boca
+  for (const s of [1, -1]) {
+    for (let t = 0; t <= 1; t += 0.2) {
+      const half = 0.008 * (1 - t);
+      add(s * (0.019 - half), -0.006 + t * 0.045, 3);
+      if (half > 0.002) add(s * (0.019 + half), -0.006 + t * 0.045, 3);
+    }
+  }
+  // la sangre corre sin salirse de la membrana ni pisar el borde
+  const deep = (x, y) => inside(x, y) && inside(x + 0.02, y) && inside(x - 0.02, y) && inside(x, y + 0.02) && inside(x, y - 0.02);
 
   /* ----- Medidas ----- */
   let W = 0, H = 0, S = 1, cx = 0, cy = 0, hx = 0, hy = 0;
@@ -2650,7 +2785,7 @@ function initContact() {
     const b = batBox.getBoundingClientRect();
     S = (b.width / 2) * 0.94;
     cx = b.left - r.left + b.width / 2;
-    cy = b.top - r.top + b.height * 0.5;
+    cy = b.top - r.top + b.height * 0.5 + 0.075 * S; // las alas suben más de lo que bajan los pies
     hx = cx;
     hy = cy - 0.07 * S;
     for (const t of targets) {
@@ -2663,7 +2798,7 @@ function initContact() {
   /* ----- Estado ----- */
   const INTRO = 2.3;   // s hasta que el enjambre forma el murciélago
   let introT = motion ? -1 : INTRO + 10;
-  let time = 0, flapBig = 0, eyes = motion ? 0 : 1, eyeFlash = 0, nextPing = 0, firstRing = !motion;
+  let time = 0, flapBig = 0, lunge = 0, shake = 0, flash = 0, eyes = motion ? 0 : 1, eyeFlash = 0, nextPing = 0, firstRing = !motion;
   let lookX = 0, lookY = 0;
   const waves = [], sparks = [];
   const cursor = { x: 0, y: 0, in: false };
@@ -2676,8 +2811,12 @@ function initContact() {
   const found = () => targets.filter((t) => t.found).length;
 
   const emit = (dir, spread, max, full = false) => {
-    waves.push({ x: hx, y: hy, r: 0, v: full ? 6.5 : 8, dir, spread, max, full, echo: false, hit: new Set() });
-    eyeFlash = Math.max(eyeFlash, 0.5);
+    waves.push({ x: hx, y: hy, r: 0, v: full ? 8 : 10, dir, spread, max, full, echo: false, hit: new Set(), seed: Math.random() * 100 });
+    eyeFlash = Math.max(eyeFlash, 0.6);
+    shake = Math.max(shake, full ? 9 : 4);
+    if (full) flash = 1;
+    lunge = Math.max(lunge, full ? 1 : 0.55); // cada chillido es una embestida
+    flapBig = Math.max(flapBig, full ? 1 : 0.45);
   };
   const emitTo = (x, y, spread) => emit(Math.atan2(y - hy, x - hx), spread, Math.hypot(x - hx, y - hy) + 60);
 
@@ -2689,14 +2828,16 @@ function initContact() {
       t.found = true;
       t.el.classList.add("is-found");
       const k = found();
-      status(k < targets.length ? `&gt; eco ${k}/${targets.length} · <b>${t.name}</b>` : `&gt; ${k} señales encontradas · ${mobile ? "toca para gritar" : "acércate a una"}`);
+      if (k === targets.length) stage.dispatchEvent(new Event("echo:ready"));
+      status(k < targets.length ? `&gt; señal ${k}/${targets.length} · <b>${t.name}</b>` : `&gt; ${k} señales encontradas · ${mobile ? "toca la pantalla" : "acércate a una"}`);
     }
-    // el eco vuelve hacia el murciélago, en fuego
+    // el retorno: un rayo que vuelve serpenteando hasta la cabeza
     const d = Math.hypot(hx - t.x, hy - t.y);
-    waves.push({ x: t.x, y: t.y, r: 0, v: 6, dir: Math.atan2(hy - t.y, hx - t.x), spread: 0.32, max: d, echo: true });
-    for (let i = 0; i < 12; i++) {
-      const a = Math.random() * Math.PI * 2, v = 1 + Math.random() * 2.5;
-      sparks.push({ x: t.x, y: t.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1 });
+    waves.push({ x: t.x, y: t.y, r: 0, v: 16, max: d, echo: true });
+    shake = Math.max(shake, 3);
+    for (let i = 0; i < 26; i++) {
+      const a = Math.random() * Math.PI * 2, v = 2 + Math.random() * 6;
+      sparks.push({ x: t.x, y: t.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, red: Math.random() < 0.7 });
     }
   };
 
@@ -2712,7 +2853,6 @@ function initContact() {
       else if (!firstRing && introT >= INTRO + 0.35) {
         // primer grito: anillo completo que barre todo el bloque
         firstRing = true;
-        flapBig = 1;
         status("&gt; emitiendo ultrasonidos…");
         emit(0, Math.PI, Math.hypot(W, H), true);
         nextPing = 3.5;
@@ -2721,7 +2861,10 @@ function initContact() {
     const formed = introT >= INTRO;
     if (formed) eyes = Math.min(1, eyes + dt * 2);
     eyeFlash = Math.max(0, eyeFlash - dt * 2.5);
-    flapBig *= Math.pow(0.985, f);
+    flapBig *= Math.pow(0.975, f);
+    lunge *= Math.pow(0.9, f);
+    shake *= Math.pow(0.86, f);
+    flash *= Math.pow(0.9, f);
 
     // a quién escucha: el enlace fijado, si no el ratón
     const locked = targets.find((t) => t.hover && t.found);
@@ -2741,7 +2884,7 @@ function initContact() {
         }
       }
       if (locked) status(`&gt; fijado · <b>${locked.name}</b> · ${(Math.hypot(locked.x - hx, locked.y - hy) / 100).toFixed(1)} m`);
-      else if (found() === targets.length) status(`&gt; ${targets.length} señales encontradas · ${mobile ? "toca para gritar" : "acércate a una"}`);
+      else if (found() === targets.length) status(`&gt; ${targets.length} señales encontradas · ${mobile ? "toca la pantalla" : "acércate a una"}`);
     }
 
     // ondas y ecos
@@ -2758,7 +2901,7 @@ function initContact() {
         }
       }
       if (w.r > w.max) {
-        if (w.echo) eyeFlash = 1; // lo ha oído
+        if (w.echo) { eyeFlash = 1; lunge = Math.max(lunge, 0.6); shake = Math.max(shake, 5); } // lo ha oído
         waves.splice(k, 1);
       }
     }
@@ -2766,22 +2909,38 @@ function initContact() {
       const s = sparks[k];
       s.x += s.vx * f;
       s.y += s.vy * f;
-      s.vx *= Math.pow(0.93, f);
-      s.vy *= Math.pow(0.93, f);
-      if ((s.life -= 0.03 * f) <= 0) sparks.splice(k, 1);
+      s.vx *= Math.pow(0.92, f);
+      s.vy = s.vy * Math.pow(0.92, f) + 0.12 * f; // gotean
+      if ((s.life -= 0.025 * f) <= 0) sparks.splice(k, 1);
     }
 
     // chispas: aleteo, intro, el ratón las aparta y las enfría, y el anillo las ilumina al pasar
-    const flap = (motion ? 0.07 * Math.sin(time * 1.5) : 0) + flapBig * 0.3 * Math.sin(time * 9);
-    const bob = motion ? Math.sin(time * 1.1) * 4 : 0;
+    // aleteo con golpe: baja rápido y sube despacio; al chillar, sacudidas cortas y una embestida hacia delante
+    const beat = Math.sin(time * 2.3);
+    const flap = (motion ? 0.09 * Math.sign(beat) * Math.abs(beat) ** 0.55 : 0) + flapBig * 0.22 * Math.sin(time * 14);
+    const bob = motion ? Math.sin(time * 2.3 + 0.6) * 5 - lunge * 6 : 0;
+    const zoom = 1 + lunge * 0.05;
     const R = mobile ? 60 : 90;
+    // la sangre: corre a borbotones con cada latido y se vuelve loca al chillar
+    const beatPump = 0.45 + 1.2 * Math.max(0, Math.sin(time * 2.6)) ** 4 + lunge * 1.5;
+    const sp = 0.16 * dt * beatPump; // en unidades del ala
     for (const p of parts) {
-      const sx = p.side * 0.13, sy = -0.1;
+      if (p.kind === 2 && motion && introT >= INTRO) {
+        p.ang += (Math.random() - 0.5) * 0.9 * f;
+        const nx = p.ux + Math.cos(p.ang) * sp * p.spd, ny = p.uy + Math.sin(p.ang) * sp * p.spd;
+        if (deep(nx, ny)) {
+          p.ux = nx;
+          p.uy = ny;
+          p.side = Math.sign(nx) || 1;
+          p.w = Math.min(1, Math.max(0, (Math.abs(nx) - 0.08) / 0.92));
+        } else p.ang += Math.PI * (0.6 + Math.random() * 0.8); // rebota contra el borde
+      }
+      const sx = p.side * 0.08, sy = -0.05; // hombro
       const dx = p.ux - sx, dy = p.uy - sy;
       const a = p.w > 0 ? flap * p.side * (0.5 + 0.5 * p.w) : 0;
       const c = Math.cos(a), s = Math.sin(a);
-      let X = cx + (sx + dx * c + dy * s) * S;
-      let Y = cy + bob + (sy - dx * s + dy * c) * S;
+      let X = cx + (sx + dx * c + dy * s) * S * zoom;
+      let Y = cy + bob + (sy - dx * s + dy * c) * S * zoom;
       p.a = 1;
       if (introT < INTRO + 1.2) {
         const lt = Math.min(1, Math.max(0, (introT - p.delay) / 1.1));
@@ -2816,29 +2975,86 @@ function initContact() {
   /* ----- Pintado ----- */
   const draw = () => {
     ctx.clearRect(0, 0, W, H);
+    // fogonazo rojo en los bordes cuando chilla de verdad
+    if (flash > 0.02) {
+      const v = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.75);
+      v.addColorStop(0, rgba(RED, 0));
+      v.addColorStop(1, rgba(RED, 0.28 * flash));
+      ctx.fillStyle = v;
+      ctx.fillRect(0, 0, W, H);
+    }
+    ctx.save();
+    if (shake > 0.3) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
     ctx.globalCompositeOperation = "lighter";
 
-    // ondas (hielo) y ecos (fuego): tres frentes seguidos que se apagan al alejarse
-    ctx.lineWidth = 1.4;
+    // chillidos: un frente dentado que vibra, rojo sangre con el filo al blanco y una estela que arde detrás
     for (const w of waves) {
-      const fade = Math.pow(1 - Math.min(1, w.r / w.max), 0.7);
-      for (let k = 0; k < 3; k++) {
-        const rr = w.r - k * 9;
-        if (rr <= 0) continue;
-        ctx.strokeStyle = rgba(w.echo ? AMBER : ICE, fade * (0.75 - k * 0.22));
+      if (w.echo) continue;
+      const fade = Math.pow(1 - Math.min(1, w.r / w.max), 0.7) * Math.min(1, w.r / 30);
+      if (fade <= 0.01) continue;
+      const band = w.full ? 90 : 60;
+      const r0 = Math.max(0, w.r - band);
+      const a0 = w.full ? 0 : w.dir - w.spread, a1 = w.full ? Math.PI * 2 : w.dir + w.spread;
+      const trail = ctx.createRadialGradient(w.x, w.y, r0, w.x, w.y, w.r);
+      trail.addColorStop(0, rgba(RED, 0));
+      trail.addColorStop(0.8, rgba(RED, 0.12 * fade));
+      trail.addColorStop(1, rgba(RED, 0.3 * fade));
+      ctx.fillStyle = trail;
+      ctx.beginPath();
+      ctx.arc(w.x, w.y, w.r, a0, a1);
+      ctx.arc(w.x, w.y, r0, a1, a0, true);
+      ctx.closePath();
+      ctx.fill();
+      // filo dentado: el radio tiembla con dos ruidos rápidos; en abanico se apaga hacia los extremos
+      const n = Math.max(24, Math.ceil(((a1 - a0) * w.r) / 6));
+      const amp = 3 + 9 * fade;
+      for (const [col, lw, off, al] of [[RED, 3, 0, 0.7], [[255, 230, 225], 1, -2, 0.9]]) {
+        ctx.lineWidth = lw;
         ctx.beginPath();
-        if (w.full) ctx.arc(w.x, w.y, rr, 0, Math.PI * 2);
-        else ctx.arc(w.x, w.y, rr, w.dir - w.spread, w.dir + w.spread);
+        for (let i = 0; i <= n; i++) {
+          const t = i / n, a = a0 + (a1 - a0) * t;
+          const j = Math.sin(a * 37 + w.seed + time * 31) * 0.6 + Math.sin(a * 91 - time * 47 + w.seed) * 0.4;
+          const rr = w.r + off + j * amp * (i % 2 ? 1 : -0.4);
+          const x = w.x + Math.cos(a) * rr, y = w.y + Math.sin(a) * rr;
+          i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+        }
+        const edge = w.full ? 1 : 0.85;
+        ctx.strokeStyle = rgba(col, al * fade * edge);
         ctx.stroke();
       }
+    }
+
+    // retornos: un rayo que vuelve serpenteando desde la presa hasta la boca, y parpadea
+    for (const w of waves) {
+      if (!w.echo) continue;
+      const k = Math.min(1, w.r / w.max);
+      const tx = w.x + (hx - w.x) * k, ty = w.y + (hy - w.y) * k;
+      const len = Math.hypot(tx - w.x, ty - w.y);
+      if (len < 2) continue;
+      const nx = -(ty - w.y) / len, ny = (tx - w.x) / len;
+      const segs = Math.max(4, Math.ceil(len / 22));
+      const pts = [];
+      for (let i = 0; i <= segs; i++) {
+        const t = i / segs, jit = i === 0 || i === segs ? 0 : (Math.random() - 0.5) * 26;
+        pts.push([w.x + (tx - w.x) * t + nx * jit, w.y + (ty - w.y) * t + ny * jit]);
+      }
+      for (const [col, lw, al] of [[RED, 6, 0.25], [AMBER, 2.5, 0.6], [[255, 245, 235], 1, 0.95]]) {
+        ctx.lineWidth = lw;
+        ctx.strokeStyle = rgba(col, al * (0.6 + 0.4 * Math.random()));
+        ctx.beginPath();
+        pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      ctx.drawImage(SPR_RED, tx - 14, ty - 14, 28, 28);
     }
 
     // haz de fijación hacia el enlace que tienes encima
     const locked = targets.find((t) => t.hover && t.found);
     if (locked && firstRing) {
       const gr = ctx.createLinearGradient(hx, hy, locked.x, locked.y);
-      gr.addColorStop(0, rgba(ICE, 0.05));
-      gr.addColorStop(1, rgba(ICE, 0.5));
+      gr.addColorStop(0, rgba(RED, 0.1));
+      gr.addColorStop(1, rgba(RED, 0.7));
       ctx.strokeStyle = gr;
       ctx.setLineDash([2, 7]);
       ctx.lineDashOffset = -time * 40;
@@ -2849,7 +3065,7 @@ function initContact() {
       ctx.setLineDash([]);
       const t = (time * 0.9) % 1;
       ctx.globalAlpha = 1;
-      ctx.drawImage(SPR_ICE, hx + (locked.x - hx) * t - 9, hy + (locked.y - hy) * t - 9, 18, 18);
+      ctx.drawImage(SPR_RED, hx + (locked.x - hx) * t - 9, hy + (locked.y - hy) * t - 9, 18, 18);
     }
 
     // halo cálido detrás del cuerpo
@@ -2857,17 +3073,19 @@ function initContact() {
     ctx.translate(cx, cy);
     ctx.scale(1, 0.45);
     const halo = ctx.createRadialGradient(0, 0, 0, 0, 0, S);
-    halo.addColorStop(0, rgba(AMBER, 0.05 + eyes * 0.09));
+    halo.addColorStop(0, rgba(RED, 0.04 + eyes * 0.07 + lunge * 0.08));
+    halo.addColorStop(0.5, rgba(AMBER, 0.03 + eyes * 0.04));
     halo.addColorStop(1, rgba(AMBER, 0));
     ctx.fillStyle = halo;
     ctx.fillRect(-S, -S, S * 2, S * 2);
     ctx.restore();
 
-    // el murciélago
+    // el murciélago: un latido recorre la membrana desde el cuerpo hasta las puntas
     for (const p of parts) {
       const tw = 0.75 + 0.25 * Math.sin(time * 2.2 + p.ph);
-      const s = p.size * (1 + p.ice * 0.4);
-      ctx.globalAlpha = (p.kind === 1 ? 0.7 : p.kind === 0 ? 0.8 : 0.32) * tw * p.a * (1 - p.ice * 0.6);
+      const pulse = p.kind === 2 && motion ? Math.max(0, Math.sin(time * 2.6 - Math.abs(p.ux) * 7)) ** 6 : 0;
+      const s = p.size * (1 + p.ice * 0.4 + pulse * 0.5);
+      ctx.globalAlpha = Math.min(1, [0.8, 0.7, 0.3, 0.95][p.kind] + pulse * 0.55) * tw * p.a * (1 - p.ice * 0.6);
       ctx.drawImage(SPR[p.kind], p.X - s, p.Y - s, s * 2, s * 2);
       if (p.ice > 0.05) {
         ctx.globalAlpha = p.ice * 0.9 * p.a;
@@ -2875,25 +3093,33 @@ function initContact() {
       }
     }
 
-    // ojos: hielo, miran hacia lo que escuchan y destellan al oír el eco
+    // ojos: rojos, rasgados hacia dentro (ceño), miran hacia lo que persiguen y se encienden al chillar
     if (eyes > 0) {
-      const bob = motion ? Math.sin(time * 1.1) * 4 : 0;
+      const bob = motion ? Math.sin(time * 2.3 + 0.6) * 5 - lunge * 6 : 0;
       for (const side of [-1, 1]) {
-        const ex = cx + side * 0.034 * S + lookX * 3, ey = cy + bob - 0.085 * S + lookY * 2;
-        const r = (mobile ? 9 : 13) * (1 + eyeFlash * 0.8);
-        ctx.globalAlpha = eyes * (0.8 + 0.2 * Math.sin(time * 3));
-        ctx.drawImage(SPR_ICE, ex - r, ey - r, r * 2, r * 2);
-        ctx.drawImage(SPR_ICE, ex - r / 2, ey - r / 2, r, r);
+        const ex = cx + side * 0.027 * S + lookX * 2, ey = cy + bob - 0.072 * S + lookY * 2;
+        const r = (mobile ? 7 : 10) * (1 + eyeFlash * 0.7);
+        ctx.save();
+        ctx.translate(ex, ey);
+        ctx.rotate(-side * 0.45);
+        ctx.globalAlpha = eyes * (0.55 + 0.45 * eyeFlash);
+        ctx.drawImage(SPR_RED, -r * 1.6, -r * 1.6, r * 3.2, r * 3.2); // resplandor
+        ctx.scale(1.8, 0.5);
+        ctx.globalAlpha = eyes * (0.9 + 0.1 * Math.sin(time * 5));
+        ctx.drawImage(SPR_RED, -r * 0.7, -r * 0.7, r * 1.4, r * 1.4);
+        ctx.drawImage(SPR_RED, -r * 0.4, -r * 0.4, r * 0.8, r * 0.8);
+        ctx.restore();
       }
     }
 
     for (const s of sparks) {
       ctx.globalAlpha = s.life;
       const r = 6 * s.life + 2;
-      ctx.drawImage(SPR_ICE, s.x - r, s.y - r, r * 2, r * 2);
+      ctx.drawImage(s.red ? SPR_RED : SPR_ICE, s.x - r, s.y - r, r * 2, r * 2);
     }
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
+    ctx.restore();
   };
 
   /* ----- Ratón, dedo y enlaces ----- */
@@ -2907,6 +3133,12 @@ function initContact() {
     cursor.in = true;
   });
   stage.addEventListener("pointerleave", () => (cursor.in = false));
+  // al reventar el botón de contacto, el murciélago chilla con todo
+  stage.addEventListener("echo:burst", (e) => {
+    if (!firstRing) return;
+    emit(0, Math.PI, Math.hypot(W, H), true);
+    emitTo(e.detail.x, e.detail.y, 0.4);
+  });
   // en táctil: un toque es un grito hacia ese punto y aparta las chispas un momento
   stage.addEventListener("pointerdown", (e) => {
     if (e.pointerType === "mouse" || !firstRing) return;
@@ -2930,7 +3162,8 @@ function initContact() {
   let running = false, last = 0;
   const frame = (now) => {
     if (!running) return;
-    const dt = Math.min(0.05, (now - last) / 1000 || 0.016);
+    // el sello del rAF puede ser anterior al performance.now() con el que arrancamos: nunca hacia atrás
+    const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
     last = now;
     step(dt);
     draw();

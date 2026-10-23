@@ -23,7 +23,7 @@
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.css" />
 
-  <link rel="stylesheet" href="css/styles.css?v=41" />
+  <link rel="stylesheet" href="css/styles.css?v=44" />
 </head>
 
 <body>
@@ -439,15 +439,23 @@
         <h2 class="section__title reveal"><span class="section__num">04.</span> Contacto</h2>
       </div>
 
-      <!-- Un murciélago de chispas que ecolocaliza: su onda "encuentra" los enlaces (canvas en initContact) -->
+      <!-- Un murciélago de chispas que lanza pulsos y destapa los enlaces (canvas en initContact) -->
       <div class="echo" id="echo">
         <canvas class="echo__canvas" aria-hidden="true"></canvas>
         <p class="echo__status" aria-hidden="true">&gt; en reposo…</p>
         <div class="echo__bat" aria-hidden="true"></div>
-        <h3 class="echo__title">No hace falta que grites,<br /><span>te encuentro por el eco.</span></h3>
+        <h3 class="echo__title">Las oportunidades son trenes:<br /><span>solo pasan una vez.</span></h3>
+        <!-- el tren cruza una sola vez cuando la vía entra en pantalla (initContact) -->
+        <div class="echo__rail" aria-hidden="true">
+          <div class="echo__train">
+            <span class="echo__car"></span><span class="echo__car"></span><span class="echo__car"></span><span class="echo__loco"></span>
+          </div>
+          <span class="echo__gone">el tren ya ha pasado · no esperes al siguiente</span>
+        </div>
 
         <ul class="echo__targets">
           <li class="echo__target" data-echo="email">
+            <span class="echo__tag">obj. 01 · correo</span>
             <a class="echo__link" href="mailto:rincon.enriquemv@gmail.com">
               <span class="echo__label">Email</span>
               <span class="echo__value">rincon.enriquemv@gmail.com</span>
@@ -455,6 +463,7 @@
             <button class="echo__copy" type="button" data-copy="rincon.enriquemv@gmail.com">copiar</button>
           </li>
           <li class="echo__target" data-echo="linkedin">
+            <span class="echo__tag">obj. 02 · red</span>
             <a class="echo__link" href="https://www.linkedin.com/in/enrique-rincón-mateeva-264845363" target="_blank"
               rel="noopener">
               <span class="echo__label">LinkedIn</span>
@@ -462,6 +471,7 @@
             </a>
           </li>
           <li class="echo__target" data-echo="github">
+            <span class="echo__tag">obj. 03 · código</span>
             <a class="echo__link" href="https://github.com/rinconn" target="_blank" rel="noopener">
               <span class="echo__label">GitHub</span>
               <span class="echo__value">github.com/rinconn ↗</span>
@@ -469,7 +479,18 @@
           </li>
         </ul>
 
-        <button class="echo__vcard" type="button" data-vcard>guardar contacto (.vcf) ↓</button>
+        <button class="echo__vcard" type="button" data-vcard>
+          <svg class="echo__vcard-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="2.5" y="5" width="19" height="14" rx="2.5" />
+            <circle cx="8.5" cy="11" r="2.2" />
+            <path d="M5.2 16.2c.6-1.6 1.8-2.4 3.3-2.4s2.7.8 3.3 2.4M14.5 10h4M14.5 13.5h3" />
+          </svg>
+          <span class="echo__vcard-text">Guardar contacto</span>
+          <span class="echo__vcard-ext">.vcf</span>
+          <span class="echo__vcard-arrow" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 5v13M6 12.5l6 6 6-6" /></svg>
+          </span>
+        </button>
       </div>
       <p class="contact__toast" role="status" aria-live="polite"></p>
     </section>
@@ -482,7 +503,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
-  <script src="js/main.js?v=41"></script>
+  <script src="js/main.js?v=44"></script>
 </body>
 
 </html>
