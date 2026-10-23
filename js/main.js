@@ -2549,120 +2549,123 @@ function initContact() {
       }
     });
   });
+  // corta a propósito: cuantos menos datos, menos denso el QR y antes lo lee la cámara
+  const VCARD = [
+    "BEGIN:VCARD",
+    "VERSION:3.0",
+    "N:Rincón Mateeva;Enrique",
+    "FN:Enrique Rincón",
+    "EMAIL:rincon.enriquemv@gmail.com",
+    "URL:https://github.com/rinconn",
+    "URL:linkedin.com/in/enrique-rinc%C3%B3n-mateeva-264845363",
+    "END:VCARD",
+  ].join("\r\n");
   const saveVcard = () => {
-    const vcard = [
-      "BEGIN:VCARD",
-      "VERSION:3.0",
-      "N:Rincón Mateeva;Enrique;;;",
-      "FN:Enrique Rincón",
-      "TITLE:Full Stack Developer",
-      "EMAIL;TYPE=INTERNET:rincon.enriquemv@gmail.com",
-      "URL:https://www.linkedin.com/in/enrique-rincón-mateeva-264845363",
-      "URL:https://github.com/rinconn",
-      "END:VCARD",
-    ].join("\r\n");
-    const url = URL.createObjectURL(new Blob([vcard], { type: "text/vcard;charset=utf-8" }));
+    const url = URL.createObjectURL(new Blob([VCARD], { type: "text/vcard;charset=utf-8" }));
     Object.assign(document.createElement("a"), { href: url, download: "enrique-rincon.vcf" }).click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     say("> contacto guardado");
   };
 
-  /* ----- Guardar contacto: carga energía mientras estás encima y al pulsar revienta en esquirlas ----- */
-  const CHARGE = 1000; // ms hasta el tope (igual que la transición del CSS)
-  document.querySelectorAll("[data-vcard]").forEach((btn) => {
-    const text = btn.querySelector(".echo__vcard-text");
-    let chargeStart = 0, chargeTimer, busy = false;
-    const charge = () => {
-      if (busy || btn.classList.contains("is-charging")) return;
-      chargeStart = performance.now();
-      btn.classList.add("is-charging");
-      stage.dispatchEvent(new CustomEvent("echo:charge", { detail: { on: true } })); // el canvas chisporrotea alrededor
-      chargeTimer = setTimeout(() => btn.classList.add("is-charged"), CHARGE);
+  /* ----- Llévate mi contacto: un QR con la vCard que se dibuja al abrirlo ----- */
+  // Con ratón se abre al pasar por encima (o al pulsar); en táctil escanear tu propia pantalla no tiene
+  // sentido, así que el botón guarda el contacto directamente. La librería del QR se carga solo si hace falta
+  const qrBox = stage.querySelector("[data-qr]");
+  if (qrBox) {
+    const trigger = qrBox.querySelector(".echo__qr-trigger");
+    const qrCanvas = qrBox.querySelector(".echo__qr-code");
+    const touch = matchMedia("(hover: none), (pointer: coarse)").matches;
+    let lib = null, drawn = false, closeTimer;
+    const loadLib = () => (lib ||= new Promise((ok, ko) => {
+      if (window.qrcode) return ok();
+      const sc = Object.assign(document.createElement("script"), { src: "https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js", onload: ok, onerror: ko });
+      document.head.append(sc);
+    }));
+    // módulos como cuadrados de esquinas suaves (con puntos sueltos los lectores fallan) y los tres ojos en violeta;
+    // oscuro sobre claro y con margen para que lo lea cualquier cámara
+    const drawQr = () => {
+      qrcode.stringToBytes = qrcode.stringToBytesFuncs["UTF-8"]; // las tildes de "Rincón"
+      const qr = qrcode(0, "L"); // en pantalla no hay roces: la corrección mínima da un QR menos denso
+      qr.addData(VCARD);
+      qr.make();
+      const n = qr.getModuleCount(), quiet = 3, size = qrCanvas.clientWidth || 200;
+      const dpr = perf.dpr(2), cell = size / (n + quiet * 2);
+      qrCanvas.width = qrCanvas.height = Math.round(size * dpr);
+      const g = qrCanvas.getContext("2d");
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const eye = (r, c) => (r < 7 && c < 7) || (r < 7 && c >= n - 7) || (r >= n - 7 && c < 7);
+      const cells = [];
+      for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c) && !eye(r, c)) cells.push([r, c]);
+      const paintEyes = () => {
+        for (const [r, c] of [[0, 0], [0, n - 7], [n - 7, 0]]) {
+          const x = (c + quiet) * cell, y = (r + quiet) * cell;
+          g.fillStyle = "#3b2fd6";
+          g.beginPath(); g.roundRect(x, y, cell * 7, cell * 7, cell * 1.8); g.fill();
+          g.fillStyle = "#eef1ff";
+          g.beginPath(); g.roundRect(x + cell, y + cell, cell * 5, cell * 5, cell * 1.2); g.fill();
+          g.fillStyle = "#060814";
+          g.beginPath(); g.roundRect(x + cell * 2, y + cell * 2, cell * 3, cell * 3, cell * 0.9); g.fill();
+        }
+      };
+      const dot = ([r, c]) => {
+        g.beginPath();
+        g.roundRect((c + quiet) * cell, (r + quiet) * cell, cell + 0.3, cell + 0.3, cell * 0.3);
+        g.fill();
+      };
+      g.fillStyle = "#eef1ff";
+      g.fillRect(0, 0, size, size);
+      if (prefersReducedMotion) { paintEyes(); g.fillStyle = "#060814"; cells.forEach(dot); return; }
+      // aparece de arriba abajo, como si lo fuera escaneando
+      const t0 = performance.now(), DUR = 650;
+      let row = -1;
+      const step = (now) => {
+        const upto = Math.min(n, Math.floor(((now - t0) / DUR) * n));
+        g.fillStyle = "#060814";
+        for (const cl of cells) if (cl[0] > row && cl[0] <= upto - 1) dot(cl);
+        if (row < 7 && upto >= 7) paintEyes();
+        row = upto - 1;
+        qrBox.style.setProperty("--scan", `${(upto / n) * 100}%`);
+        if (upto < n) requestAnimationFrame(step);
+        else { paintEyes(); qrBox.classList.add("is-drawn"); }
+      };
+      requestAnimationFrame(step);
     };
-    const discharge = () => {
-      if (busy) return;
-      clearTimeout(chargeTimer);
-      btn.classList.remove("is-charging", "is-charged");
-      stage.dispatchEvent(new CustomEvent("echo:charge", { detail: { on: false } }));
-    };
-    const shatter = () => {
-      const s = stage.getBoundingClientRect(), b = btn.getBoundingClientRect();
-      const ox = b.left - s.left, oy = b.top - s.top;
-      const cxB = ox + b.width / 2, cyB = oy + b.height / 2;
-      // fogonazo y dos ondas de choque que se abren desde el botón
-      for (const [cls, delay] of [["echo__blast", 0], ["echo__shock", 0], ["echo__shock", 120]]) {
-        const el = document.createElement("span");
-        el.className = cls;
-        Object.assign(el.style, { left: `${cxB}px`, top: `${cyB}px`, animationDelay: `${delay}ms` });
-        stage.appendChild(el);
-        el.addEventListener("animationend", () => el.remove());
+    const open = async () => {
+      clearTimeout(closeTimer);
+      if (qrBox.classList.contains("is-open")) return;
+      qrBox.classList.add("is-open");
+      trigger.setAttribute("aria-expanded", "true");
+      if (drawn) return;
+      drawn = true;
+      try {
+        await loadLib();
+        drawQr();
+        // el murciélago le lanza un chillido: lo ha "encontrado"
+        const s = stage.getBoundingClientRect(), q = qrCanvas.getBoundingClientRect();
+        stage.dispatchEvent(new CustomEvent("echo:qr", { detail: { x: q.left - s.left + q.width / 2, y: q.top - s.top + q.height / 2 } }));
+      } catch {
+        drawn = false;
+        qrBox.classList.add("is-failed"); // sin QR: queda el enlace de descarga de la tarjeta
       }
-      for (let i = 0; i < 70; i++) {
-        const spark = i >= 40;
-        const el = document.createElement("span");
-        el.className = spark ? "echo__shard is-spark" : "echo__shard";
-        const size = spark ? 3 + Math.random() * 3 : 8 + Math.random() * 18;
-        const x = ox + Math.random() * b.width, y = oy + Math.random() * b.height;
-        const pts = Array.from({ length: 3 }, () => `${(Math.random() * 100) | 0}% ${(Math.random() * 100) | 0}%`).join(",");
-        Object.assign(el.style, {
-          left: `${x - size / 2}px`,
-          top: `${y - size / 2}px`,
-          width: `${size}px`,
-          height: `${size}px`,
-          clipPath: spark ? "" : `polygon(${pts})`,
-        });
-        stage.appendChild(el);
-        const a = Math.atan2(y - cyB, x - cxB) + (Math.random() - 0.5) * 0.8;
-        const d = (spark ? 120 : 60) + Math.random() * (spark ? 200 : 140);
-        el.animate(
-          [
-            { transform: "translate(0, 0) rotate(0deg)", opacity: 1 },
-            { transform: `translate(${Math.cos(a) * d}px, ${Math.sin(a) * d + 60}px) rotate(${(Math.random() - 0.5) * 720}deg)`, opacity: 0 },
-          ],
-          { duration: 900 + Math.random() * 600, easing: "cubic-bezier(.15,.7,.35,1)" }
-        ).onfinish = () => el.remove();
-      }
-      stage.dispatchEvent(new CustomEvent("echo:burst", { detail: { x: cxB, y: cyB } }));
     };
-    const burst = () => {
-      busy = true;
-      saveVcard();
-      if (prefersReducedMotion) {
-        busy = false;
-        discharge();
-        return;
-      }
-      shatter();
-      btn.classList.remove("is-charging", "is-charged");
-      btn.classList.add("is-broken");
-      setTimeout(() => {
-        text.textContent = "Guardado ✓";
-        btn.classList.remove("is-broken");
-        btn.classList.add("is-reborn", "is-saved");
-      }, 1400);
-      setTimeout(() => {
-        text.textContent = "Guardar contacto";
-        btn.classList.remove("is-reborn", "is-saved");
-        busy = false;
-      }, 4200);
+    const close = () => {
+      closeTimer = setTimeout(() => {
+        qrBox.classList.remove("is-open");
+        trigger.setAttribute("aria-expanded", "false");
+      }, 250);
     };
-    btn.addEventListener("pointerenter", charge);
-    btn.addEventListener("focus", charge);
-    btn.addEventListener("pointerleave", discharge);
-    btn.addEventListener("blur", discharge);
-    btn.addEventListener("click", () => {
-      if (busy) return;
-      if (btn.classList.contains("is-charged")) return burst(); // cargado del todo: revienta ya
-      // sin carga completa (en táctil o con un clic rápido) termina de cargarse antes de reventar
-      charge();
-      const left = prefersReducedMotion ? 0 : Math.max(250, CHARGE - (performance.now() - chargeStart));
-      busy = true;
-      setTimeout(() => {
-        btn.classList.add("is-charged");
-        setTimeout(burst, prefersReducedMotion ? 0 : 160);
-      }, left);
-    });
-  });
+    if (touch) {
+      trigger.querySelector(".echo__qr-text").textContent = "Añadir a mis contactos";
+      trigger.addEventListener("click", saveVcard);
+    } else {
+      qrBox.addEventListener("pointerenter", open);
+      qrBox.addEventListener("pointerleave", close);
+      qrBox.addEventListener("focusin", open);
+      qrBox.addEventListener("focusout", (e) => !qrBox.contains(e.relatedTarget) && close());
+      trigger.addEventListener("click", () => (qrBox.classList.contains("is-open") && drawn ? close() : open()));
+    }
+    qrBox.querySelector("[data-vcf]")?.addEventListener("click", saveVcard);
+  }
 
   /* ----- La vía: el tren pasa cuando la vía se ve y el murciélago ya ha encontrado todo, y de vez en cuando vuelve ----- */
   const rail = stage.querySelector(".echo__rail");
@@ -2709,7 +2712,6 @@ function initContact() {
   const ctx = canvas.getContext("2d");
   const batBox = stage.querySelector(".echo__bat");
   const statusEl = stage.querySelector(".echo__status");
-  const vcardBtn = stage.querySelector("[data-vcard]");
   const targets = [...stage.querySelectorAll("[data-echo]")].map((el) => ({
     el,
     label: el.querySelector(".echo__label"),
@@ -2913,7 +2915,6 @@ function initContact() {
   let lookX = 0, lookY = 0, flap = 0, bob = 0, zoom = 1;
   const sonic = [], sparks = [], bolts = [];
   const cursor = { x: 0, y: 0, in: false };
-  let charge = null; // { since } mientras el botón de contacto se carga
   let statusHTML = "";
   const status = (html) => {
     if (html === statusHTML) return;
@@ -3070,17 +3071,6 @@ function initContact() {
       if ((s.life -= 0.025 * f) <= 0) sparks.splice(k, 1);
     }
     for (let k = bolts.length - 1; k >= 0; k--) if ((bolts[k].life -= bolts[k].decay * f) <= 0) bolts.splice(k, 1);
-    // mientras el botón se carga, chisporrotea cada vez más
-    if (charge && motion) {
-      const k = Math.min(1, (performance.now() - charge.since) / 1000);
-      if (Math.random() < 0.08 + k * 0.5) {
-        const r = vcardBtn.getBoundingClientRect(), s = stage.getBoundingClientRect();
-        const a = Math.random() * Math.PI * 2;
-        const x = r.left - s.left + r.width / 2 + Math.cos(a) * r.width * 0.5, y = r.top - s.top + r.height / 2 + Math.sin(a) * r.height * 0.6;
-        bolts.push({ x, y, a, l: 12 + k * 30 * Math.random(), life: 1, decay: 0.14 });
-      }
-    }
-
     // fondo
     for (const m of motes) {
       m.y -= (m.v * f) / Math.max(H, 1);
@@ -3331,19 +3321,11 @@ function initContact() {
     cursor.in = true;
   });
   stage.addEventListener("pointerleave", () => (cursor.in = false));
-  stage.addEventListener("echo:charge", (e) => (charge = e.detail.on ? { since: performance.now() } : null));
-  // al reventar el botón de contacto: rayos y una onda de sonido desde el botón, y el murciélago chilla con todo
-  stage.addEventListener("echo:burst", (e) => {
-    charge = null;
+  // al abrir el QR de contacto: un chillido corto hacia él y un par de chispas, sin aspavientos
+  stage.addEventListener("echo:qr", (e) => {
     const { x, y } = e.detail;
-    zap(x, y, 16, mobile ? 120 : 190);
-    for (let i = 0; i < 50; i++) {
-      const a = Math.random() * Math.PI * 2, v = 3 + Math.random() * 9;
-      sparks.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, red: Math.random() < 0.35 });
-    }
-    if (!firstRing) return;
-    emit(0, Math.PI, mobile ? 70 : 110, true, x, y);
-    emitTo(x, y, 0.25, 20);
+    zap(x, y, 4, mobile ? 40 : 60);
+    if (firstRing) emitTo(x, y, 0.12, 14);
   });
   // en táctil: un toque es un chillido hacia ese punto y aparta las chispas un momento
   stage.addEventListener("pointerdown", (e) => {
@@ -3456,9 +3438,9 @@ function initCommandPalette() {
         catch { say(`> ${EMAIL}`); }
       } },
     { group: "Contacto", label: "Escribir un email", icon: svg("mail"), hint: "↗", keys: "correo mail mandar enviar", run: () => (location.href = `mailto:${EMAIL}`) },
-    { group: "Contacto", label: "Guardar contacto (.vcf)", icon: svg("card"), keys: "vcard agenda descargar telefono", run: () => {
+    { group: "Contacto", label: "Llévate mi contacto (QR)", icon: svg("card"), keys: "vcard qr agenda guardar movil telefono", run: () => {
       go("#contacto");
-      setTimeout(() => document.querySelector("[data-vcard]")?.click(), 1100); // que se vea cómo carga y revienta
+      setTimeout(() => document.querySelector("[data-qr] .echo__qr-trigger")?.click(), 1100); // ya en su sitio, se abre
     } },
     { group: "Redes", label: "GitHub", icon: svgBrand("GitHub"), hint: "↗", keys: "codigo repos git", run: () => window.open(link("GitHub"), "_blank", "noopener") },
     { group: "Redes", label: "LinkedIn", icon: svgBrand("LinkedIn"), hint: "↗", keys: "red perfil trabajo", run: () => window.open(link("LinkedIn"), "_blank", "noopener") },

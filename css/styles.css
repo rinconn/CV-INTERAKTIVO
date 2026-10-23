@@ -2777,14 +2777,20 @@ ul {
   color: #21e6c1;
 }
 
-/* botón de guardar contacto: píldora con borde de fuego a hielo y un brillo que la cruza */
-.echo__vcard {
+/* LLÉVATE MI CONTACTO: una píldora que, al pasar por encima, despliega una tarjeta con el QR de la vCard */
+.echo__qr {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: clamp(2.5rem, 6vh, 3.5rem);
+}
+
+.echo__qr-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-top: clamp(2.5rem, 6vh, 3.5rem);
-  padding: 0.55rem 0.55rem 0.55rem 1.1rem;
+  gap: 0.7rem;
+  padding: 0.6rem 1.15rem;
   border-radius: 999px;
   border: 1px solid transparent;
   background:
@@ -2794,191 +2800,127 @@ ul {
   font: 600 0.95rem var(--font-display);
   letter-spacing: 0.01em;
   cursor: pointer;
-  overflow: hidden;
-  isolation: isolate;
   box-shadow: 0 12px 40px -18px rgba(108, 92, 255, 0.55);
   transition: box-shadow 0.4s var(--ease), transform 0.4s var(--ease);
 }
 
-.echo__vcard::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.12) 50%, transparent 70%);
-  translate: -100% 0;
-  transition: translate 0.8s var(--ease);
-}
-
-.echo__vcard:hover,
-.echo__vcard:focus-visible {
-  transform: translateY(-2px);
-  box-shadow: 0 0 0 4px rgba(33, 230, 193, 0.08), 0 16px 44px -14px rgba(33, 230, 193, 0.6);
-}
-
-.echo__vcard:hover::before,
-.echo__vcard:focus-visible::before {
-  translate: 100% 0;
-}
-
-.echo__vcard svg {
+.echo__qr-trigger svg {
+  width: 1.15rem;
+  height: 1.15rem;
   fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
+  stroke: var(--accent-2);
+  stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
-.echo__vcard-icon {
-  width: 1.3rem;
-  height: 1.3rem;
-  color: var(--accent);
-  transition: color 0.3s;
+.echo__qr-hint {
+  font: 400 0.68rem "JetBrains Mono", ui-monospace, monospace;
+  color: var(--text-muted);
 }
 
-.echo__vcard:hover .echo__vcard-icon {
-  color: #21e6c1;
+.echo__qr:hover .echo__qr-trigger,
+.echo__qr-trigger:focus-visible,
+.echo__qr.is-open .echo__qr-trigger {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 50px -16px rgba(33, 230, 193, 0.45);
 }
 
-.echo__vcard-ext {
-  font: 500 0.7rem "JetBrains Mono", ui-monospace, monospace;
-  color: var(--accent);
-  padding: 0.15rem 0.5rem;
-  border-radius: 999px;
-  background: rgba(108, 92, 255, 0.12);
-}
-
-.echo__vcard-arrow {
+/* la tarjeta: crece desde la píldora; el QR se dibuja de arriba abajo con una línea de escaneo */
+.echo__qr-card {
   display: grid;
-  place-items: center;
-  width: 2.1rem;
-  height: 2.1rem;
-  border-radius: 50%;
-  color: #060814;
-  background: linear-gradient(140deg, #b3a8ff, var(--accent));
-  transition: background 0.3s;
+  justify-items: center;
+  gap: 0.7rem;
+  width: 236px;
+  margin-top: 0.9rem;
+  padding: 0.9rem 0.9rem 0.8rem;
+  border-radius: 18px;
+  background: rgba(15, 20, 48, 0.9);
+  border: 1px solid rgba(230, 235, 255, 0.1);
+  box-shadow: 0 30px 70px -30px rgba(0, 0, 0, 0.8), 0 0 50px -20px rgba(33, 230, 193, 0.35);
+  transform-origin: 50% 0;
+  opacity: 0;
+  transform: translateY(-6px) scale(0.92);
+  visibility: hidden;
+  transition: opacity 0.3s, transform 0.45s var(--ease), visibility 0s 0.45s;
 }
 
-.echo__vcard-arrow svg {
-  width: 1rem;
-  height: 1rem;
-  stroke-width: 2.2;
+.echo__qr.is-open .echo__qr-card {
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+  transition: opacity 0.3s, transform 0.45s var(--ease);
 }
 
-.echo__vcard:hover .echo__vcard-arrow {
-  background: linear-gradient(140deg, #c9fff3, #21e6c1);
+.echo__qr-frame {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  line-height: 0;
 }
 
-.echo__vcard:hover .echo__vcard-arrow svg {
-  animation: vcard-drop 0.9s var(--ease) infinite;
+.echo__qr-code {
+  width: 200px;
+  height: 200px;
+  background: #eef1ff;
 }
 
-@keyframes vcard-drop {
-  0% { translate: 0 -120%; opacity: 0; }
-  35%, 70% { translate: 0 0; opacity: 1; }
-  100% { translate: 0 120%; opacity: 0; }
-}
-
-/* carga: una barra de energía llena el botón mientras estás encima; al tope, tiembla */
-.echo__vcard::after {
+.echo__qr-frame::after {
   content: "";
   position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: linear-gradient(90deg, rgba(255, 92, 200, 0.25), rgba(108, 92, 255, 0.35) 60%, rgba(33, 230, 193, 0.45));
-  transform-origin: left;
-  transform: scaleX(0);
-  transition: transform 0.35s var(--ease);
+  left: 0;
+  right: 0;
+  top: var(--scan, 0%);
+  height: 2px;
+  background: var(--accent-2);
+  box-shadow: 0 0 14px 3px rgba(33, 230, 193, 0.7);
+  transition: opacity 0.4s;
 }
 
-.echo__vcard.is-charging::after {
-  transform: scaleX(1);
-  transition: transform 1s cubic-bezier(0.5, 0, 0.9, 0.6);
-}
-
-.echo__vcard.is-charged {
-  animation: vcard-tremble 0.09s linear infinite;
-  box-shadow: 0 0 0 5px rgba(33, 230, 193, 0.14), 0 0 46px -4px rgba(33, 230, 193, 0.8), 0 0 90px -20px rgba(108, 92, 255, 0.9);
-}
-
-.echo__vcard.is-charged .echo__vcard-arrow {
-  background: #fff;
-  box-shadow: 0 0 18px #21e6c1;
-}
-
-@keyframes vcard-tremble {
-  0% { translate: 0.6px -0.4px; }
-  25% { translate: -0.7px 0.5px; }
-  50% { translate: 0.5px 0.6px; }
-  75% { translate: -0.4px -0.6px; }
-}
-
-/* roto: desaparece en esquirlas (las pinta JS) y luego se recompone */
-.echo__vcard.is-broken {
+.echo__qr.is-drawn .echo__qr-frame::after {
   opacity: 0;
-  scale: 0.7;
-  filter: blur(6px);
-  pointer-events: none;
-  transition: none;
 }
 
-.echo__vcard.is-reborn {
-  animation: vcard-reborn 0.7s var(--ease);
+.echo__qr-note {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  text-align: center;
 }
 
-@keyframes vcard-reborn {
-  from { opacity: 0; scale: 0.85; filter: blur(8px); }
+.echo__qr-vcf {
+  font: 500 0.68rem "JetBrains Mono", ui-monospace, monospace;
+  color: var(--text-muted);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  transition: color 0.25s;
 }
 
-.echo__vcard.is-saved .echo__vcard-arrow {
-  background: linear-gradient(140deg, #c9fff3, #21e6c1);
+.echo__qr-vcf:hover,
+.echo__qr-vcf:focus-visible {
+  color: var(--accent-2);
 }
 
-.echo__shard {
-  position: absolute;
-  z-index: 3;
-  pointer-events: none;
-  background: linear-gradient(130deg, #b3a8ff, var(--accent) 50%, #21e6c1);
-  box-shadow: 0 0 10px rgba(108, 92, 255, 0.8);
+/* si no se pudo cargar el QR, la tarjeta se queda con la descarga */
+.echo__qr.is-failed .echo__qr-frame,
+.echo__qr.is-failed .echo__qr-note {
+  display: none;
 }
 
-.echo__shard.is-spark {
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 8px 2px #21e6c1;
+/* en táctil no hay tarjeta: el botón guarda el contacto directamente */
+@media (hover: none), (pointer: coarse) {
+  .echo__qr-card,
+  .echo__qr-hint {
+    display: none;
+  }
 }
 
-/* al reventar: un fogonazo blanco y dos anillos de choque que se abren */
-.echo__blast,
-.echo__shock {
-  position: absolute;
-  z-index: 2;
-  width: 40px;
-  height: 40px;
-  margin: -20px 0 0 -20px;
-  border-radius: 50%;
-  pointer-events: none;
-}
-
-.echo__blast {
-  background: radial-gradient(circle, #fff 0%, rgba(201, 255, 243, 0.9) 25%, rgba(33, 230, 193, 0.35) 55%, transparent 72%);
-  animation: vcard-blast 0.55s ease-out forwards;
-}
-
-.echo__shock {
-  border: 2px solid rgba(201, 255, 243, 0.9);
-  box-shadow: 0 0 18px rgba(33, 230, 193, 0.8), inset 0 0 18px rgba(108, 92, 255, 0.6);
-  animation: vcard-shock 0.9s cubic-bezier(0.1, 0.7, 0.3, 1) both;
-}
-
-@keyframes vcard-blast {
-  from { transform: scale(0.4); opacity: 1; }
-  to { transform: scale(6); opacity: 0; }
-}
-
-@keyframes vcard-shock {
-  from { transform: scale(0.5); opacity: 1; border-width: 4px; }
-  to { transform: scale(16); opacity: 0; border-width: 0.5px; }
+@media (prefers-reduced-motion: reduce) {
+  .echo__qr-card {
+    transition: none;
+  }
 }
 
 /* LA VÍA: el tren cruza una sola vez, de izquierda a derecha, y deja dicho que ya pasó */

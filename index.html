@@ -28,13 +28,13 @@
   <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&display=swap" media="print" onload="this.media='all'" />
   <noscript><link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&display=swap" /></noscript>
 
-  <link rel="stylesheet" href="css/styles.css?v=53" />
+  <link rel="stylesheet" href="css/styles.css?v=55" />
 
   <!-- defer: se descargan en paralelo con el CSS y se ejecutan en orden al terminar de leer el HTML -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
-  <script defer src="js/main.js?v=54"></script>
+  <script defer src="js/main.js?v=56"></script>
 </head>
 
 <body>
@@ -496,18 +496,23 @@
           </li>
         </ul>
 
-        <button class="echo__vcard" type="button" data-vcard>
-          <svg class="echo__vcard-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="2.5" y="5" width="19" height="14" rx="2.5" />
-            <circle cx="8.5" cy="11" r="2.2" />
-            <path d="M5.2 16.2c.6-1.6 1.8-2.4 3.3-2.4s2.7.8 3.3 2.4M14.5 10h4M14.5 13.5h3" />
-          </svg>
-          <span class="echo__vcard-text">Guardar contacto</span>
-          <span class="echo__vcard-ext">.vcf</span>
-          <span class="echo__vcard-arrow" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M12 5v13M6 12.5l6 6 6-6" /></svg>
-          </span>
-        </button>
+        <div class="echo__qr" data-qr>
+          <button class="echo__qr-trigger" type="button" aria-expanded="false" aria-controls="echoQrCard">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" />
+              <rect x="3" y="14" width="7" height="7" rx="1.5" /><path d="M14 14h3v3M21 14v.01M14 21h3M21 18v3h-1" />
+            </svg>
+            <span class="echo__qr-text">Llévate mi contacto</span>
+            <span class="echo__qr-hint">QR</span>
+          </button>
+          <div class="echo__qr-card" id="echoQrCard">
+            <div class="echo__qr-frame">
+              <canvas class="echo__qr-code" role="img" aria-label="Código QR con la tarjeta de contacto de Enrique Rincón"></canvas>
+            </div>
+            <p class="echo__qr-note">Apunta con la cámara del móvil<br />y se guarda en tus contactos</p>
+            <button class="echo__qr-vcf" type="button" data-vcf>o descarga el .vcf</button>
+          </div>
+        </div>
       </div>
       <p class="contact__toast" role="status" aria-live="polite"></p>
     </section>
