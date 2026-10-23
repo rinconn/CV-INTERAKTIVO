@@ -23,7 +23,7 @@
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.css" />
 
-  <link rel="stylesheet" href="css/styles.css?v=28" />
+  <link rel="stylesheet" href="css/styles.css?v=29" />
 </head>
 
 <body>
@@ -309,6 +309,7 @@
     <!-- Trayectoria: una línea de energía. La carga baja con el scroll, cada nodo se enciende
          al recibirla y su tarjeta se materializa desde él. Rayos, órbitas y chispas en canvas -->
     <section class="section" id="trayectoria">
+      <div class="nebula" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
       <div class="container">
         <h2 class="section__title reveal"><span class="section__num">03.</span> Trayectoria</h2>
 
@@ -364,7 +365,7 @@
               </article>
             </li>
 
-            <li class="checkpoint" data-kind="proj">
+            <li class="checkpoint" data-kind="proj" data-branch="feat/tsender">
               <span class="checkpoint__node" aria-hidden="true"><span class="checkpoint__core"></span></span>
               <article class="checkpoint__card">
                 <div class="checkpoint__frame">
@@ -379,7 +380,7 @@
               </article>
             </li>
 
-            <li class="checkpoint" data-kind="proj">
+            <li class="checkpoint" data-kind="proj" data-branch="feat/scriptbay">
               <span class="checkpoint__node" aria-hidden="true"><span class="checkpoint__core"></span></span>
               <article class="checkpoint__card">
                 <div class="checkpoint__frame">
@@ -413,10 +414,16 @@
               <span class="checkpoint__node" aria-hidden="true"><span class="checkpoint__core"></span></span>
               <article class="checkpoint__card">
                 <div class="checkpoint__frame">
-                  <header class="checkpoint__head"><span class="checkpoint__id">CP_??</span><span class="checkpoint__kind">Próximo checkpoint</span></header>
-                  <h3 class="checkpoint__title">¿Tu equipo?</h3>
-                  <p class="checkpoint__desc">Lo siguiente lo escribimos juntos.</p>
-                  <a class="checkpoint__cta" href="#contacto">&gt; hablemos<span class="checkpoint__caret" aria-hidden="true">_</span></a>
+                  <header class="checkpoint__head"><span class="checkpoint__id">PR_07</span><span class="checkpoint__kind">Pull request</span><span class="checkpoint__status">Abierta</span></header>
+                  <h3 class="checkpoint__title">feat: fichar a Enrique</h3>
+                  <p class="checkpoint__desc">Todos los checks en verde. Solo falta alguien que lo revise.</p>
+                  <ul class="checkpoint__checks">
+                    <li class="is-ok" style="--i: 0">ci/formación</li>
+                    <li class="is-ok" style="--i: 1">ci/proyectos</li>
+                    <li class="is-ok" style="--i: 2">ci/experiencia</li>
+                    <li class="is-wait" style="--i: 3">review · esperando revisor</li>
+                  </ul>
+                  <a class="checkpoint__cta" href="#contacto" data-hover="$ git merge enrique">Aprobar y hacer merge</a>
                 </div>
               </article>
             </li>
@@ -441,7 +448,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
-  <script src="js/main.js?v=28"></script>
+  <script src="js/main.js?v=29"></script>
 </body>
 
 </html>

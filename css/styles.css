@@ -2308,3 +2308,244 @@ ul {
     padding: 1.1rem 1.15rem 1.2rem;
   }
 }
+
+/* ---------- Ramas tipo Git: los proyectos se salen de "main" a su propio carril ----------
+   El nodo se desplaza hacia el lado de su tarjeta; el canvas dibuja la bifurcación, el carril de
+   main que sigue recto y la fusión en el siguiente nodo */
+.timeline {
+  --lane: 64px;
+}
+
+.checkpoint[data-branch] .checkpoint__node {
+  left: calc(var(--x) - var(--lane));
+}
+
+.checkpoint[data-branch]:nth-child(even) .checkpoint__node {
+  left: calc(var(--x) + var(--lane));
+}
+
+/* ---------- Último checkpoint: una pull request abierta esperando revisor ---------- */
+.checkpoint__status {
+  margin-left: auto;
+  padding: 0.05rem 0.5rem;
+  border: 1px solid var(--tl-green);
+  border-radius: 99px;
+  color: var(--tl-green);
+}
+
+.timeline {
+  --tl-green: #3dffa2;
+}
+
+.checkpoint__checks {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.95rem;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.checkpoint__checks li {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.checkpoint__checks li::before {
+  content: "";
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(255, 255, 255, 0.3);
+  transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+}
+
+/* Al encenderse la tarjeta los checks pasan a verde uno a uno */
+.checkpoint.is-active .checkpoint__checks .is-ok {
+  animation: check-text 0.01s calc(0.7s + var(--i) * 0.35s) both;
+}
+
+.checkpoint.is-active .checkpoint__checks .is-ok::before {
+  animation: check-pass 0.35s calc(0.7s + var(--i) * 0.35s) both;
+}
+
+.checkpoint__checks .is-wait::before {
+  border-style: solid;
+  border-color: var(--c) transparent var(--c) var(--c);
+  animation: node-spin 1s linear infinite;
+}
+
+.checkpoint__checks .is-wait {
+  color: var(--text);
+}
+
+@keyframes check-pass {
+  from {
+    scale: 0.4;
+  }
+
+  to {
+    border: 0;
+    background: var(--tl-green) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M3.5 7.3l2.3 2.2 4.7-5' fill='none' stroke='%2307080b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 100% no-repeat;
+    box-shadow: 0 0 10px var(--tl-green);
+    scale: 1;
+  }
+}
+
+@keyframes check-text {
+  to {
+    color: var(--text);
+  }
+}
+
+.checkpoint--next .checkpoint__cta {
+  min-width: 15.5rem;
+  border-color: var(--tl-green);
+  background: color-mix(in srgb, var(--tl-green) 12%, transparent);
+  text-align: center;
+}
+
+.checkpoint--next .checkpoint__cta:hover {
+  color: #07080b;
+  background: var(--tl-green);
+  box-shadow: 0 0 24px -4px var(--tl-green);
+  letter-spacing: 0.04em;
+}
+
+/* ---------- Fondo: niebla de nebulosa muy tenue que se mueve despacio ----------
+   --neb lo cambia JS al color de la última etapa encendida y la niebla se tiñe poco a poco */
+@property --neb {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #22e1ff;
+}
+
+#trayectoria {
+  --neb: #22e1ff;
+  position: relative;
+  isolation: isolate;
+  transition: --neb 1.6s ease;
+}
+
+.nebula {
+  position: absolute;
+  inset: 0 calc(50% - 50vw);
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-mask: linear-gradient(180deg, transparent, #000 10%, #000 90%, transparent);
+  mask: linear-gradient(180deg, transparent, #000 10%, #000 90%, transparent);
+}
+
+.nebula span {
+  position: absolute;
+  width: min(1100px, 120vw);
+  aspect-ratio: 1.4;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--neb) 20%, transparent), color-mix(in srgb, var(--neb) 6%, transparent) 55%, transparent);
+  animation: neb-drift 34s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+.nebula span:nth-child(1) {
+  top: 2%;
+  left: -18%;
+}
+
+.nebula span:nth-child(2) {
+  top: 28%;
+  right: -22%;
+  background: radial-gradient(closest-side, rgba(255, 62, 165, 0.13), rgba(255, 62, 165, 0.04) 55%, transparent);
+  animation-duration: 41s;
+  animation-delay: -12s;
+}
+
+.nebula span:nth-child(3) {
+  top: 55%;
+  left: -10%;
+  background: radial-gradient(closest-side, rgba(255, 51, 85, 0.1), rgba(255, 51, 85, 0.03) 55%, transparent);
+  animation-duration: 47s;
+  animation-delay: -20s;
+}
+
+.nebula span:nth-child(4) {
+  top: 72%;
+  right: -15%;
+  animation-duration: 38s;
+  animation-delay: -7s;
+}
+
+@keyframes neb-drift {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+
+  50% {
+    transform: translate(9vw, -6%) rotate(25deg) scale(1.15);
+  }
+
+  100% {
+    transform: translate(-6vw, 5%) rotate(-15deg) scale(0.92);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nebula span {
+    animation: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .timeline {
+    --lane: 0px;
+  }
+
+  .checkpoint[data-branch] .checkpoint__node,
+  .checkpoint[data-branch]:nth-child(even) .checkpoint__node {
+    left: calc(var(--x) + 22px);
+  }
+
+  .checkpoint[data-branch] {
+    padding-left: 3.9rem;
+  }
+
+  .checkpoint--next .checkpoint__cta {
+    min-width: 0;
+  }
+}
+
+/* Nombre de la rama encima de la tarjeta, como una pestaña */
+.checkpoint[data-branch]::before {
+  content: "⎇ " attr(data-branch);
+  position: absolute;
+  top: -1.9rem;
+  left: calc(50% + 6rem);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--c);
+  opacity: 0;
+  translate: 0 6px;
+  transition: opacity 0.5s 0.3s, translate 0.5s 0.3s var(--ease);
+}
+
+.checkpoint[data-branch]:nth-child(odd)::before {
+  left: auto;
+  right: calc(50% + 6rem);
+}
+
+.checkpoint[data-branch].is-active::before {
+  opacity: 1;
+  translate: 0 0;
+}
+
+@media (max-width: 760px) {
+  .checkpoint[data-branch]::before,
+  .checkpoint[data-branch]:nth-child(odd)::before {
+    left: 3.9rem;
+    right: auto;
+    top: -1.6rem;
+  }
+}

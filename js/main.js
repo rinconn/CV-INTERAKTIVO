@@ -1102,10 +1102,19 @@ function initTimeline() {
   let points = [];    // centro de cada nodo, color y borde de su tarjeta más cercano al hilo
   let segs = [];      // tramos: parámetros de la curva + tabla de longitudes para recorrerla a velocidad constante
   let stops = [];     // 0 → 1: en qué punto de la carga se enciende cada nodo
+  let mains = [];     // carriles de main que corren en paralelo a las ramas
 
   // Punto del tramo en t ∈ [0, 1] sin ondulación. θ va de -π a π: en los extremos la curva sale
   // vertical del nodo y en el centro (b > a) da la vuelta sobre sí misma → bucle
+  // Si los dos nodos están en carriles distintos (una rama de Git) el tramo no hace bucle: baja recto,
+  // cambia de carril con una curva suave y vuelve a bajar recto, como en un gráfico de git log
   const basePoint = (s, t, out) => {
+    if (s.lane) {
+      const u = Math.min(1, Math.max(0, (t - 0.22) / 0.56));
+      out.x = s.x0 + s.lane * u * u * (3 - 2 * u);
+      out.y = s.y0 + s.d * t;
+      return out;
+    }
     const th = -Math.PI + 2 * Math.PI * t;
     out.x = s.x0 + s.dir * s.bx * (1 + Math.cos(th));
     out.y = s.y0 + s.a * (th + Math.PI) - s.b * Math.sin(th);
@@ -1132,7 +1141,8 @@ function initTimeline() {
       const d = q.y - p.y;
       const a = d / (2 * Math.PI);
       const s = {
-        i, x0: p.x, y0: p.y, a,
+        i, x0: p.x, y0: p.y, a, d,
+        lane: Math.abs(q.x - p.x) > 2 ? q.x - p.x : 0,
         b: a * (mobile ? 1.3 : 1.8),             // > a → bucle; cuanto más, más grande
         bx: mobile ? 10 : 46,                     // anchura del bucle (en móvil casi una onda)
         dir: mobile ? 1 : i % 2 ? -1 : 1,         // en escritorio cada bucle sale hacia un lado
@@ -1153,6 +1163,16 @@ function initTimeline() {
     }
     total = Math.max(1, acc);
     stops = stops.map((v) => v / total);
+
+    // Tramos de "main" que siguen rectos mientras los proyectos van por su rama:
+    // desde el nodo anterior a una racha de ramas hasta el primero que vuelve al eje
+    mains = [];
+    for (let i = 1; i < checkpoints.length; i++) {
+      if (!checkpoints[i].dataset.branch || checkpoints[i - 1].dataset.branch) continue;
+      let j = i;
+      while (j < checkpoints.length && checkpoints[j].dataset.branch) j++;
+      if (j < checkpoints.length) mains.push({ from: i - 1, to: j, x: points[i - 1].x, y0: points[i - 1].y, y1: points[j].y });
+    }
 
     const top = points[0].y, bottom = points[points.length - 1].y;
     timeline.style.setProperty("--track-top", `${top}px`);
@@ -1344,7 +1364,22 @@ function initTimeline() {
       else reveal(i);
     });
     lastP = p;
+    // la niebla del fondo se tiñe del color de la última etapa encendida
+    let last = 0;
+    checkpoints.forEach((c, i) => c.classList.contains("is-active") && (last = i));
+    const neb = rgb(points[last].color);
+    if (section && section.style.getPropertyValue("--neb") !== neb) section.style.setProperty("--neb", neb);
   };
+
+  const section = timeline.closest("section");
+
+  // El botón de la pull request: al pasar el ratón se "descifra" en el comando de merge
+  timeline.querySelectorAll("[data-hover]").forEach((el) => {
+    const label = el.textContent;
+    const swap = (text) => { el.dataset.text = text; scramble(el, 16); };
+    el.addEventListener("pointerenter", () => swap(el.dataset.hover));
+    el.addEventListener("pointerleave", () => swap(label));
+  });
 
   measure();
   ScrollTrigger.create({
@@ -1521,6 +1556,79 @@ function initTimeline() {
     }
   };
 
+  // Main sigue recto mientras los proyectos van por su rama: se carga a la vez que la cabeza baja
+  // y tiene sus propios commits (anillos que se rellenan al pasar la carga)
+  const drawMains = () => {
+    const headY = headIndex >= 0 ? by[headIndex] - PAD : 0;
+    for (const m of mains) {
+      const done = charge.p >= stops[m.to] - 0.001;
+      const hy = done ? m.y1 : Math.max(m.y0, Math.min(m.y1, headY));
+      const xAt = (y) => m.x + Math.sin(y * 0.018 + time * 0.035) * (mobile ? 1.5 : 3) * Math.sin(Math.PI * (y - m.y0) / (m.y1 - m.y0));
+
+      ctx.globalAlpha = 0.16;
+      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = "#fff";
+      ctx.setLineDash([2, 7]);
+      ctx.beginPath();
+      for (let y = hy; y <= m.y1; y += 8) (y === hy ? ctx.moveTo(xAt(y), y + PAD) : ctx.lineTo(xAt(y), y + PAD));
+      ctx.lineTo(m.x, m.y1 + PAD);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      if (hy > m.y0 + 1) {
+        for (const [alpha, width] of [[0.12, 12], [0.85, 2]]) {
+          ctx.globalAlpha = alpha;
+          ctx.lineWidth = width;
+          for (let y = m.y0; y < hy; y += 12) {
+            const y2 = Math.min(hy, y + 12);
+            ctx.strokeStyle = flowAt((y - m.y0) * 0.0025 - time * 0.012 + 0.5);
+            ctx.beginPath(); ctx.moveTo(xAt(y), y + PAD); ctx.lineTo(xAt(y2), y2 + PAD); ctx.stroke();
+          }
+        }
+      }
+
+      // commits de main
+      const n = Math.max(1, Math.round((m.y1 - m.y0) / 120));
+      for (let k = 1; k < n; k++) {
+        const y = m.y0 + ((m.y1 - m.y0) * k) / n;
+        const on = y <= hy;
+        ctx.globalAlpha = on ? 1 : 0.3;
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = on ? "#fff" : "rgba(255, 255, 255, 0.6)";
+        ctx.beginPath(); ctx.arc(xAt(y), y + PAD, mobile ? 3 : 4.5, 0, Math.PI * 2); ctx.stroke();
+        if (on) glow(SPRITES[(k + 1) % 3], xAt(y), y + PAD, 26 + 6 * Math.sin(time * 0.07 + k), 0.8);
+      }
+    }
+  };
+
+  // Etiquetas en monoespaciada sobre el canvas: "main" en su carril y "HEAD" pegada a la carga
+  const tag = (text, x, y, color, align = "left", alpha = 1) => {
+    ctx.font = '600 10.5px "JetBrains Mono", ui-monospace, monospace';
+    const tw = ctx.measureText(text).width + 12;
+    const x0 = align === "right" ? x - tw : x;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = "rgba(9, 10, 15, 0.88)";
+    ctx.fillRect(x0, y - 9, tw, 18);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x0 + 0.5, y - 8.5, tw - 1, 17);
+    ctx.fillStyle = color;
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, x0 + 6, y + 0.5);
+  };
+
+  const drawTags = () => {
+    if (mobile) return;
+    for (const m of mains) {
+      const a = Math.min(1, Math.max(0, (charge.p - stops[m.from]) * 40));
+      if (a > 0) tag("main", m.x - 14, m.y0 + 78, "#e8ecf2", "right", a);
+    }
+    if (charge.p > 0.001 && charge.p < 0.999 && headIndex >= 0) {
+      const x = bx[headIndex], y = by[headIndex];
+      tag("HEAD", x + 22, y, flowAt(time * 0.01), "left", 0.95);
+    }
+  };
+
   const drawNode = (i, dt) => {
     const p = points[i];
     const y = p.y + PAD;
@@ -1579,6 +1687,7 @@ function initTimeline() {
     for (const m of dust) glow(SPRITES[m.c], m.x, m.y, m.s, 0.18 + 0.22 * Math.sin(time * 0.05 + m.ph) ** 2);
 
     buildThread();
+    drawMains();
     drawThread();
 
     checkpoints.forEach((c, i) => {
@@ -1628,8 +1737,9 @@ function initTimeline() {
       ctx.drawImage(SPRITES[tint[i]], px[i] - s / 2, py[i] - s / 2, s, s);
     }
 
-    ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
+    drawTags();
+    ctx.globalAlpha = 1;
   };
 
   const step = (dt) => {
