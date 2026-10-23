@@ -2550,6 +2550,7 @@ ul {
 .echo {
   position: relative;
   isolation: isolate;
+  overflow-x: clip; /* que la onda de choque del botón no abra scroll lateral */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2604,7 +2605,7 @@ ul {
   list-style: none;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: clamp(1.5rem, 4vw, 3.5rem);
+  gap: 0;
   width: min(960px, 100%);
   margin-top: clamp(2.5rem, 6vh, 4rem);
 }
@@ -2673,92 +2674,56 @@ ul {
   overflow-wrap: anywhere;
 }
 
-/* mira de caza: cuatro esquinas alrededor de cada presa; al encontrarla se cierran de golpe en rojo */
-@property --c {
-  syntax: "<color>";
-  inherits: false;
-  initial-value: transparent;
-}
-
+/* enlaces: tres columnas abiertas separadas por un hilo de luz, con su número arriba */
 .echo__target {
-  --mira: rgba(255, 163, 26, 0.55);
-  padding: 1.6rem 1.2rem 1.2rem;
+  padding: 1.2rem 1rem;
 }
 
-.echo__target::before {
+.echo__target + .echo__target::before {
   content: "";
   position: absolute;
-  inset: 0;
-  pointer-events: none;
-  --c: var(--mira);
-  background:
-    linear-gradient(var(--c), var(--c)) top left / 16px 2px,
-    linear-gradient(var(--c), var(--c)) top left / 2px 16px,
-    linear-gradient(var(--c), var(--c)) top right / 16px 2px,
-    linear-gradient(var(--c), var(--c)) top right / 2px 16px,
-    linear-gradient(var(--c), var(--c)) bottom left / 16px 2px,
-    linear-gradient(var(--c), var(--c)) bottom left / 2px 16px,
-    linear-gradient(var(--c), var(--c)) bottom right / 16px 2px,
-    linear-gradient(var(--c), var(--c)) bottom right / 2px 16px;
-  background-repeat: no-repeat;
-  transition: inset 0.35s var(--ease), --c 0.3s;
-}
-
-.echo__target.is-found::before {
-  animation: mira-lock 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.3);
-}
-
-@keyframes mira-lock {
-  0% { inset: -2.2rem; opacity: 0; --c: #ff2228; }
-  60% { inset: 0.3rem; opacity: 1; --c: #ff2228; }
-}
-
-.echo__target:hover,
-.echo__target:focus-within {
-  --mira: #ff2228;
-}
-
-.echo__target:hover::before,
-.echo__target:focus-within::before {
-  inset: 0.5rem 0.2rem;
+  left: 0;
+  top: 12%;
+  bottom: 12%;
+  width: 1px;
+  background: linear-gradient(transparent, rgba(255, 255, 255, 0.16), transparent);
 }
 
 .echo__tag {
-  position: absolute;
-  top: 0.35rem;
-  left: 0.9rem;
-  font: 500 0.62rem "JetBrains Mono", ui-monospace, monospace;
-  letter-spacing: 0.12em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  font: 500 0.64rem "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--text-muted);
   transition: color 0.3s;
 }
 
-.echo__tag::before {
+/* una raya roja que se abre al encontrarlo y se alarga al pasar por encima */
+.echo__tag::after {
   content: "";
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin-right: 0.45rem;
-  border-radius: 50%;
-  background: #ff2228;
-  box-shadow: 0 0 8px #ff2228;
-  vertical-align: 1px;
-  opacity: 0.35;
+  width: 1.6rem;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, #ff2228, transparent);
+  transform: scaleX(0);
+  transition: transform 0.6s var(--ease), width 0.4s var(--ease);
 }
 
-.echo__target.is-found .echo__tag::before {
-  opacity: 1;
-  animation: tag-blink 1.4s steps(2, jump-none) infinite;
-}
-
-@keyframes tag-blink {
-  50% { opacity: 0.25; }
+.echo__target.is-found .echo__tag::after {
+  transform: scaleX(1);
 }
 
 .echo__target:hover .echo__tag,
 .echo__target:focus-within .echo__tag {
   color: #ff6a6e;
+}
+
+.echo__target:hover .echo__tag::after,
+.echo__target:focus-within .echo__tag::after {
+  width: 4rem;
 }
 
 /* cuando le llega una onda: sacudida y la letra se parte en rojo y hielo */
@@ -2972,6 +2937,39 @@ ul {
   box-shadow: 0 0 8px 2px #50b4ff;
 }
 
+/* al reventar: un fogonazo blanco y dos anillos de choque que se abren */
+.echo__blast,
+.echo__shock {
+  position: absolute;
+  z-index: 2;
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.echo__blast {
+  background: radial-gradient(circle, #fff 0%, rgba(205, 232, 255, 0.9) 25%, rgba(80, 180, 255, 0.35) 55%, transparent 72%);
+  animation: vcard-blast 0.55s ease-out forwards;
+}
+
+.echo__shock {
+  border: 2px solid rgba(205, 232, 255, 0.9);
+  box-shadow: 0 0 18px rgba(80, 180, 255, 0.8), inset 0 0 18px rgba(255, 163, 26, 0.6);
+  animation: vcard-shock 0.9s cubic-bezier(0.1, 0.7, 0.3, 1) both;
+}
+
+@keyframes vcard-blast {
+  from { transform: scale(0.4); opacity: 1; }
+  to { transform: scale(6); opacity: 0; }
+}
+
+@keyframes vcard-shock {
+  from { transform: scale(0.5); opacity: 1; border-width: 4px; }
+  to { transform: scale(16); opacity: 0; border-width: 0.5px; }
+}
+
 /* LA VÍA: el tren cruza una sola vez, de izquierda a derecha, y deja dicho que ya pasó */
 .echo__rail {
   position: relative;
@@ -3131,7 +3129,16 @@ ul {
 
   .echo__targets {
     grid-template-columns: 1fr;
-    gap: 1.4rem;
     padding-inline: 1rem;
+  }
+
+  .echo__target + .echo__target::before {
+    left: 20%;
+    right: 20%;
+    top: 0;
+    bottom: auto;
+    width: auto;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.16), transparent);
   }
 }

@@ -2524,19 +2524,29 @@ function initContact() {
       if (busy || btn.classList.contains("is-charging")) return;
       chargeStart = performance.now();
       btn.classList.add("is-charging");
+      stage.dispatchEvent(new CustomEvent("echo:charge", { detail: { on: true } })); // el canvas chisporrotea alrededor
       chargeTimer = setTimeout(() => btn.classList.add("is-charged"), CHARGE);
     };
     const discharge = () => {
       if (busy) return;
       clearTimeout(chargeTimer);
       btn.classList.remove("is-charging", "is-charged");
+      stage.dispatchEvent(new CustomEvent("echo:charge", { detail: { on: false } }));
     };
     const shatter = () => {
       const s = stage.getBoundingClientRect(), b = btn.getBoundingClientRect();
       const ox = b.left - s.left, oy = b.top - s.top;
       const cxB = ox + b.width / 2, cyB = oy + b.height / 2;
-      for (let i = 0; i < 46; i++) {
-        const spark = i >= 30;
+      // fogonazo y dos ondas de choque que se abren desde el botón
+      for (const [cls, delay] of [["echo__blast", 0], ["echo__shock", 0], ["echo__shock", 120]]) {
+        const el = document.createElement("span");
+        el.className = cls;
+        Object.assign(el.style, { left: `${cxB}px`, top: `${cyB}px`, animationDelay: `${delay}ms` });
+        stage.appendChild(el);
+        el.addEventListener("animationend", () => el.remove());
+      }
+      for (let i = 0; i < 70; i++) {
+        const spark = i >= 40;
         const el = document.createElement("span");
         el.className = spark ? "echo__shard is-spark" : "echo__shard";
         const size = spark ? 3 + Math.random() * 3 : 8 + Math.random() * 18;
@@ -2602,35 +2612,42 @@ function initContact() {
     });
   });
 
-  /* ----- La vía: el tren cruza una sola vez, cuando la vía se ve y el murciélago ya ha encontrado todo ----- */
+  /* ----- La vía: el tren pasa cuando la vía se ve y el murciélago ya ha encontrado todo, y de vez en cuando vuelve ----- */
   const rail = stage.querySelector(".echo__rail");
   if (rail) {
     if (prefersReducedMotion) rail.classList.add("is-gone");
     else {
-      let seen = false, ready = false, gone = false;
-      const go = () => {
-        if (!seen || !ready || gone) return;
-        gone = true;
-        setTimeout(() => {
-          rail.classList.add("is-passing");
-          setTimeout(() => stage.classList.add("is-passing"), 900); // el golpe de aire llega cuando pasa por el centro
-        }, 700);
+      const train = rail.querySelector(".echo__train");
+      let seen = false, ready = false, passing = false, nextTrain;
+      const pass = () => {
+        if (!seen || !ready || passing) return;
+        passing = true;
+        clearTimeout(nextTrain);
+        rail.classList.remove("is-gone", "is-passing");
+        void train.offsetWidth; // reinicia la animación
+        rail.classList.add("is-passing");
+        setTimeout(() => stage.classList.add("is-passing"), 900); // el golpe de aire llega cuando pasa por el centro
       };
-      const io = new IntersectionObserver(
+      const later = (ms) => {
+        clearTimeout(nextTrain);
+        nextTrain = setTimeout(pass, ms);
+      };
+      new IntersectionObserver(
         ([e]) => {
           seen = e.isIntersecting;
-          go();
+          if (seen && ready && !passing) later(700);
         },
         { threshold: 1 }
-      );
-      io.observe(rail);
+      ).observe(rail);
       stage.addEventListener("echo:ready", () => {
         ready = true;
-        go();
+        if (seen) later(700);
       });
-      rail.querySelector(".echo__train").addEventListener("animationend", () => {
+      train.addEventListener("animationend", () => {
+        passing = false;
         rail.classList.add("is-gone");
         stage.classList.remove("is-passing");
+        later(16000 + Math.random() * 12000); // el siguiente, quién sabe cuándo
       });
     }
   }
@@ -2640,12 +2657,15 @@ function initContact() {
   const ctx = canvas.getContext("2d");
   const batBox = stage.querySelector(".echo__bat");
   const statusEl = stage.querySelector(".echo__status");
+  const vcardBtn = stage.querySelector("[data-vcard]");
   const targets = [...stage.querySelectorAll("[data-echo]")].map((el) => ({
     el,
     label: el.querySelector(".echo__label"),
     name: el.dataset.echo,
     x: 0,
     y: 0,
+    w: 0,
+    h: 0,
     found: false,
     hover: false,
   }));
@@ -2666,39 +2686,50 @@ function initContact() {
     return c;
   };
   const ICE = [80, 180, 255], AMBER = [255, 163, 26], RED = [255, 34, 40];
-  // por tipo de chispa: 0 borde (oro), 1 huesos (ámbar), 2 membrana (sangre), 3 colmillos (blanco caliente)
+  // por tipo de chispa: 0 borde (oro), 1 huesos y trazos (ámbar), 2 membrana (sangre), 3 colmillos (blanco caliente)
   const SPR = [makeSprite([255, 208, 112]), makeSprite(AMBER), makeSprite([225, 18, 32]), makeSprite([255, 236, 214])];
   const SPR_ICE = makeSprite(ICE);
   const SPR_RED = makeSprite(RED);
+  const SPR_AMBER = SPR[1];
   const rgba = ([r, g, b], a) => `rgba(${r}, ${g}, ${b}, ${a})`;
 
   /* ----- Silueta (unidades: las alas van de -1 a 1, la y hacia abajo) ----- */
-  // mitad derecha, de la cabeza a los pies: [x, y] o [x, y, cx, cy] si llega con una curva
-  // alas en V como un tatuaje gótico: cuerpo flaco acabado en pico, orejas enormes, brazo fino que sube
-  // hasta la muñeca (con la garra hacia dentro) y festones hundidos que dejan las puntas colgando
+  // mitad derecha, de la cabeza a los pies: [x, y] o [x, y, cx, cy] si llega con una curva.
+  // Como el tatuaje: cabezón con orejas enormes abiertas, brazo corto que sube a la muñeca (garra arriba)
+  // y el ala como una vela rasgada: borde de ataque casi recto hacia la punta y festones hundidos abajo
   const RIGHT = [
-    [0, -0.1], [0.022, -0.125], [0.072, -0.4], [0.078, -0.11], // oreja
-    [0.095, -0.06],
-    [0.47, -0.42, 0.3, -0.16], [0.4, -0.5], [0.52, -0.455], // brazo y garra de la muñeca
-    [1, -0.32, 0.8, -0.52],
-    [0.93, -0.01, 0.86, -0.2],
-    [0.76, 0.15, 0.77, -0.02],
-    [0.56, 0.34, 0.58, 0.1],
-    [0.38, 0.12, 0.44, 0.11],
-    [0.17, 0.0, 0.25, 0.03],
-    [0.06, 0.06],
-    [0.045, 0.2, 0.065, 0.13], [0, 0.36], // cuerpo en pico
+    [0, -0.13], [0.035, -0.16],
+    [0.115, -0.46, 0.05, -0.33], // oreja
+    [0.125, -0.1, 0.15, -0.3],
+    [0.105, -0.03], [0.15, -0.01], // mejilla y hombro
+    [0.33, -0.24, 0.24, -0.06], [0.29, -0.34], [0.355, -0.27], // brazo y garra de la muñeca
+    [0.97, -0.43, 0.66, -0.38], [1, -0.37], // borde de ataque y punta
+    [0.93, -0.04, 0.9, -0.24],
+    [0.78, 0.12, 0.8, 0.0],
+    [0.6, 0.19, 0.66, 0.08],
+    [0.42, 0.21, 0.5, 0.12],
+    [0.25, 0.17, 0.33, 0.13],
+    [0.14, 0.17], [0.12, 0.29, 0.15, 0.24], // cadera y pata
+    [0.09, 0.37], [0.07, 0.31], [0.045, 0.37], [0.03, 0.3], [0, 0.33], // garras
   ];
-  const SHOULDER = [0.08, -0.05], WRIST = [0.5, -0.43];
+  const SHOULDER = [0.15, -0.01], WRIST = [0.33, -0.25];
   // huesos: brazo hasta la muñeca y de ahí los dedos hasta cada punta del ala (algo curvados)
   const BONES = [
-    [SHOULDER, WRIST, 0.05],
-    [WRIST, [1, -0.32], -0.04],
-    [WRIST, [0.93, -0.01], -0.035],
-    [WRIST, [0.76, 0.15], -0.03],
-    [WRIST, [0.56, 0.34], -0.02],
+    [SHOULDER, WRIST, 0.03],
+    [WRIST, [0.96, -0.41], -0.03],
+    [WRIST, [0.93, -0.04], -0.05],
+    [WRIST, [0.78, 0.12], -0.04],
+    [WRIST, [0.6, 0.19], -0.03],
+    [WRIST, [0.42, 0.21], -0.01],
   ];
-  const K = 400, MW = 2 * K + 20, MH = Math.round(0.88 * K), OX = MW / 2, OY = 0.52 * K;
+  // trazos de las orejas y el ceño: [desde, hasta, curva, tipo]
+  const STROKES = [
+    [[0.055, -0.15], [0.1, -0.38], -0.02, 1], // pliegue de la oreja
+    [[0.012, -0.072], [0.085, -0.118], -0.012, 0], // ceño fruncido: baja hacia el centro
+    [[0.016, -0.064], [0.082, -0.106], -0.01, 0],
+  ];
+
+  const K = 400, MW = 2 * K + 20, MH = Math.round(0.9 * K), OX = MW / 2, OY = 0.5 * K;
   const mask = document.createElement("canvas");
   mask.width = MW;
   mask.height = MH;
@@ -2717,8 +2748,8 @@ function initContact() {
     qx === undefined ? m.lineTo(-x, y) : m.quadraticCurveTo(-qx, qy, -x, y);
   }
   m.fill();
-  m.beginPath(); m.ellipse(0, -0.06, 0.062, 0.068, 0, 0, Math.PI * 2); m.fill();
-  m.beginPath(); m.ellipse(0, 0.07, 0.05, 0.13, 0, 0, Math.PI * 2); m.fill();
+  m.beginPath(); m.ellipse(0, -0.05, 0.1, 0.095, 0, 0, Math.PI * 2); m.fill();
+  m.beginPath(); m.ellipse(0, 0.12, 0.075, 0.17, 0, 0, Math.PI * 2); m.fill();
   const alpha = m.getImageData(0, 0, MW, MH).data;
   const inside = (x, y) => {
     const px = Math.round(x * K + OX), py = Math.round(y * K + OY);
@@ -2727,12 +2758,13 @@ function initContact() {
 
   /* ----- Chispas ----- */
   const parts = [];
+  const wingW = (ux) => Math.min(1, Math.max(0, (Math.abs(ux) - 0.17) / 0.83)); // cuánto se mueve con el aleteo
   const add = (ux, uy, kind) => {
     const side = Math.sign(ux) || 1;
     parts.push({
       ux, uy, kind, side,
-      w: Math.min(1, Math.max(0, (Math.abs(ux) - 0.08) / 0.92)), // cuánto se mueve con el aleteo
-      size: [3.1, 3, 2.5, 2.4][kind] * (mobile ? 0.8 : 1),
+      w: wingW(ux),
+      size: [3.1, 2.8, 2.5, 2.4][kind] * (mobile ? 0.8 : 1),
       ph: Math.random() * Math.PI * 2,
       ang: Math.random() * Math.PI * 2, // rumbo de la sangre que corre por la membrana
       spd: 0.5 + Math.random(),
@@ -2742,8 +2774,8 @@ function initContact() {
       ox: 0, oy: 0, vx: 0, vy: 0, ice: 0, X: 0, Y: 0,
     });
   };
-  const g = mobile ? 0.013 : 0.0095;
-  for (let y = -0.51; y < 0.35; y += g) {
+  const g = mobile ? 0.013 : 0.0092;
+  for (let y = -0.48; y < 0.4; y += g) {
     for (let x = -1.02; x < 1.02; x += g) {
       const px = x + (Math.random() - 0.5) * g * 0.6, py = y + (Math.random() - 0.5) * g * 0.6;
       if (!inside(px, py)) continue;
@@ -2753,24 +2785,40 @@ function initContact() {
       else if (Math.random() < 0.24) add(px, py, 2);
     }
   }
-  for (const [[ax, ay], [bx, by], bend] of BONES) {
-    const len = Math.hypot(bx - ax, by - ay), n = Math.ceil(len / (g * 1.3));
+  const line = ([ax, ay], [bx, by], bend, kind, step = 1.3) => {
+    const len = Math.hypot(bx - ax, by - ay), n = Math.ceil(len / (g * step));
     const nx = -(by - ay) / len, ny = (bx - ax) / len; // normal: la curva se abomba hacia ella
     for (let i = 0; i <= n; i++) {
       const t = i / n, k = 4 * t * (1 - t) * bend;
-      for (const s of [1, -1]) add(s * (ax + (bx - ax) * t + nx * k), ay + (by - ay) * t + ny * k, 1);
+      for (const s of [1, -1]) add(s * (ax + (bx - ax) * t + nx * k), ay + (by - ay) * t + ny * k, kind);
     }
-  }
-  // colmillos: dos triángulos que bajan de la boca
-  for (const s of [1, -1]) {
-    for (let t = 0; t <= 1; t += 0.2) {
+  };
+  for (const [a, b, bend] of BONES) line(a, b, bend, 1);
+  for (const [a, b, bend, kind] of STROKES) line(a, b, bend, kind, 0.8);
+  // colmillos: dos largos que bajan de la boca
+  for (const [x0, y0, len] of [[0.026, -0.008, 0.055]]) {
+    for (let t = 0; t <= 1; t += 0.16) {
       const half = 0.008 * (1 - t);
-      add(s * (0.019 - half), -0.006 + t * 0.045, 3);
-      if (half > 0.002) add(s * (0.019 + half), -0.006 + t * 0.045, 3);
+      for (const s of [1, -1]) {
+        add(s * (x0 - half), y0 + t * len, 3);
+        if (half > 0.002) add(s * (x0 + half), y0 + t * len, 3);
+      }
     }
   }
   // la sangre corre sin salirse de la membrana ni pisar el borde
   const deep = (x, y) => inside(x, y) && inside(x + 0.02, y) && inside(x - 0.02, y) && inside(x, y + 0.02) && inside(x, y - 0.02);
+
+  // telaraña bajo el cuerpo: hilos desde las patas a los festones de las alas, y vueltas que cuelgan entre ellos
+  const WEB_HUB = [0, 0.3];
+  const WEB_ANCHORS = [[-0.78, 0.12], [-0.6, 0.19], [-0.42, 0.21], [-0.25, 0.17], [-0.12, 0.42], [0, 0.48], [0.12, 0.42], [0.25, 0.17], [0.42, 0.21], [0.6, 0.19], [0.78, 0.12]];
+
+  /* ----- Fondo: ceniza que sube y murciélagos lejanos ----- */
+  const motes = Array.from({ length: mobile ? 30 : 70 }, () => ({
+    x: Math.random(), y: Math.random(), r: 0.6 + Math.random() * 1.8,
+    v: 0.1 + Math.random() * 0.35, ph: Math.random() * 6.3, red: Math.random() < 0.4,
+  }));
+  const flock = [];
+  let nextFlock = 2;
 
   /* ----- Medidas ----- */
   let W = 0, H = 0, S = 1, cx = 0, cy = 0, hx = 0, hy = 0;
@@ -2785,23 +2833,26 @@ function initContact() {
     const b = batBox.getBoundingClientRect();
     S = (b.width / 2) * 0.94;
     cx = b.left - r.left + b.width / 2;
-    cy = b.top - r.top + b.height * 0.5 + 0.075 * S; // las alas suben más de lo que bajan los pies
+    cy = b.top - r.top + b.height * 0.5 + 0.03 * S;
     hx = cx;
-    hy = cy - 0.07 * S;
+    hy = cy + 0.01 * S; // la boca
     for (const t of targets) {
       const e = t.label.getBoundingClientRect();
       t.x = e.left - r.left + e.width / 2;
       t.y = e.top - r.top + e.height / 2;
+      t.w = e.width;
+      t.h = e.height;
     }
   };
 
   /* ----- Estado ----- */
   const INTRO = 2.3;   // s hasta que el enjambre forma el murciélago
   let introT = motion ? -1 : INTRO + 10;
-  let time = 0, flapBig = 0, lunge = 0, shake = 0, flash = 0, eyes = motion ? 0 : 1, eyeFlash = 0, nextPing = 0, firstRing = !motion;
-  let lookX = 0, lookY = 0;
-  const waves = [], sparks = [];
+  let time = 0, flapBig = 0, lunge = 0, shake = 0, eyes = motion ? 0 : 1, eyeFlash = 0, nextPing = 0, firstRing = !motion;
+  let lookX = 0, lookY = 0, flap = 0, bob = 0, zoom = 1;
+  const sonic = [], sparks = [], bolts = [];
   const cursor = { x: 0, y: 0, in: false };
+  let charge = null; // { since } mientras el botón de contacto se carga
   let statusHTML = "";
   const status = (html) => {
     if (html === statusHTML) return;
@@ -2810,17 +2861,33 @@ function initContact() {
   };
   const found = () => targets.filter((t) => t.found).length;
 
-  const emit = (dir, spread, max, full = false) => {
-    waves.push({ x: hx, y: hy, r: 0, v: full ? 8 : 10, dir, spread, max, full, echo: false, hit: new Set(), seed: Math.random() * 100 });
-    eyeFlash = Math.max(eyeFlash, 0.6);
-    shake = Math.max(shake, full ? 9 : 4);
-    if (full) flash = 1;
-    lunge = Math.max(lunge, full ? 1 : 0.55); // cada chillido es una embestida
-    flapBig = Math.max(flapBig, full ? 1 : 0.45);
+  // de unidades del murciélago a pantalla, con el aleteo (sin el empujón del ratón)
+  const toScreen = (ux, uy) => {
+    const side = Math.sign(ux) || 1, w = wingW(ux);
+    const sx = side * SHOULDER[0], sy = SHOULDER[1];
+    const dx = ux - sx, dy = uy - sy;
+    const a = w > 0 ? flap * side * (0.5 + 0.5 * w) : 0;
+    const c = Math.cos(a), s = Math.sin(a);
+    return [cx + (sx + dx * c + dy * s) * S * zoom, cy + bob + (sy - dx * s + dy * c) * S * zoom];
   };
-  const emitTo = (x, y, spread) => emit(Math.atan2(y - hy, x - hx), spread, Math.hypot(x - hx, y - hy) + 60);
 
-  const ping = (t, w) => {
+  // ultrasonidos: un chorro de partículas de sonido que sale de la boca; las que dan en un enlace rebotan
+  // y vuelven a la boca, las demás se pierden
+  const emit = (dir, spread, n, full = false, ox = hx, oy = hy) => {
+    const burst = new Set();
+    for (let i = 0; i < n; i++) {
+      const a = full ? (i / n) * Math.PI * 2 + Math.random() * 0.02 : dir + (Math.random() * 2 - 1) * spread;
+      const v = 7 + Math.random() * 4;
+      sonic.push({ x: ox, y: oy, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, back: false, burst });
+    }
+    eyeFlash = Math.max(eyeFlash, 0.6);
+    lunge = Math.max(lunge, full ? 1 : 0.5); // cada chillido es una embestida
+    flapBig = Math.max(flapBig, full ? 1 : 0.4);
+    if (full) shake = Math.max(shake, 6);
+  };
+  const emitTo = (x, y, spread, n) => emit(Math.atan2(y - hy, x - hx), spread, n);
+
+  const ping = (t) => {
     t.el.classList.remove("is-ping");
     void t.el.offsetWidth; // reinicia la animación
     t.el.classList.add("is-ping");
@@ -2831,17 +2898,19 @@ function initContact() {
       if (k === targets.length) stage.dispatchEvent(new Event("echo:ready"));
       status(k < targets.length ? `&gt; señal ${k}/${targets.length} · <b>${t.name}</b>` : `&gt; ${k} señales encontradas · ${mobile ? "toca la pantalla" : "acércate a una"}`);
     }
-    // el retorno: un rayo que vuelve serpenteando hasta la cabeza
-    const d = Math.hypot(hx - t.x, hy - t.y);
-    waves.push({ x: t.x, y: t.y, r: 0, v: 16, max: d, echo: true });
-    shake = Math.max(shake, 3);
-    for (let i = 0; i < 26; i++) {
-      const a = Math.random() * Math.PI * 2, v = 2 + Math.random() * 6;
-      sparks.push({ x: t.x, y: t.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, red: Math.random() < 0.7 });
+    for (let i = 0; i < 14; i++) {
+      const a = Math.random() * Math.PI * 2, v = 1.5 + Math.random() * 4;
+      sparks.push({ x: t.x + (Math.random() - 0.5) * t.w, y: t.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, red: Math.random() < 0.6 });
     }
   };
 
-  const angDiff = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+  // rayos que salen de un punto (al reventar el botón)
+  const zap = (x, y, n, len) => {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, l = len * (0.5 + Math.random() * 0.7);
+      bolts.push({ x, y, a, l, life: 1, decay: 0.05 + Math.random() * 0.04 });
+    }
+  };
 
   /* ----- Paso ----- */
   const step = (dt) => {
@@ -2851,20 +2920,18 @@ function initContact() {
       introT += dt;
       if (introT < INTRO) status("&gt; despertando…");
       else if (!firstRing && introT >= INTRO + 0.35) {
-        // primer grito: anillo completo que barre todo el bloque
+        // primer chillido: en todas direcciones
         firstRing = true;
         status("&gt; emitiendo ultrasonidos…");
-        emit(0, Math.PI, Math.hypot(W, H), true);
+        emit(0, Math.PI, mobile ? 160 : 240, true);
         nextPing = 3.5;
       }
     }
-    const formed = introT >= INTRO;
-    if (formed) eyes = Math.min(1, eyes + dt * 2);
+    if (introT >= INTRO) eyes = Math.min(1, eyes + dt * 2);
     eyeFlash = Math.max(0, eyeFlash - dt * 2.5);
     flapBig *= Math.pow(0.975, f);
     lunge *= Math.pow(0.9, f);
     shake *= Math.pow(0.86, f);
-    flash *= Math.pow(0.9, f);
 
     // a quién escucha: el enlace fijado, si no el ratón
     const locked = targets.find((t) => t.hover && t.found);
@@ -2875,11 +2942,11 @@ function initContact() {
     if (firstRing && motion) {
       nextPing -= dt;
       if (nextPing <= 0) {
-        if (locked) { emitTo(locked.x, locked.y, 0.3); nextPing = 0.8; }
-        else if (cursor.in) { emitTo(cursor.x, cursor.y, 0.5); nextPing = 2.2; }
+        if (locked) { emitTo(locked.x, locked.y, 0.12, 26); nextPing = 0.45; }
+        else if (cursor.in) { emitTo(cursor.x, cursor.y, 0.35, 60); nextPing = 2; }
         else {
           const t = targets[(Math.random() * targets.length) | 0];
-          emitTo(t.x, t.y, 0.4);
+          emitTo(t.x, t.y, 0.3, 70);
           nextPing = 3 + Math.random() * 1.5;
         }
       }
@@ -2887,43 +2954,86 @@ function initContact() {
       else if (found() === targets.length) status(`&gt; ${targets.length} señales encontradas · ${mobile ? "toca la pantalla" : "acércate a una"}`);
     }
 
-    // ondas y ecos
-    for (let k = waves.length - 1; k >= 0; k--) {
-      const w = waves[k];
-      w.r += w.v * f;
-      if (!w.echo) {
+    // partículas de sonido
+    for (let k = sonic.length - 1; k >= 0; k--) {
+      const p = sonic[k];
+      if (!p.back) {
+        p.x += p.vx * f;
+        p.y += p.vy * f;
+        p.life -= 0.007 * f;
         for (const t of targets) {
-          if (w.hit.has(t)) continue;
-          const d = Math.hypot(t.x - w.x, t.y - w.y);
-          if (w.r < d) continue;
-          w.hit.add(t);
-          if (w.full || angDiff(Math.atan2(t.y - w.y, t.x - w.x), w.dir) < w.spread + 0.15) ping(t, w);
+          if (Math.abs(p.x - t.x) > t.w / 2 + 12 || Math.abs(p.y - t.y) > t.h / 2 + 10) continue;
+          if (!p.burst.has(t)) { p.burst.add(t); ping(t); }
+          // rebota: casi todas vuelven a la boca, alguna sale despedida
+          if (Math.random() < 0.8) { p.back = true; p.life = 1; }
+          else { p.vx *= -0.6; p.vy *= -0.6; }
+          break;
         }
+      } else {
+        // de vuelta: se curva hacia la boca y acelera
+        const dx = hx - p.x, dy = hy - p.y, d = Math.hypot(dx, dy);
+        if (d < 14) {
+          eyeFlash = Math.max(eyeFlash, 0.7);
+          sonic.splice(k, 1);
+          continue;
+        }
+        const sp = Math.min(16, 6 + (1 - Math.min(1, d / 600)) * 10);
+        p.vx += ((dx / d) * sp - p.vx) * 0.12 * f;
+        p.vy += ((dy / d) * sp - p.vy) * 0.12 * f;
+        p.x += p.vx * f;
+        p.y += p.vy * f;
       }
-      if (w.r > w.max) {
-        if (w.echo) { eyeFlash = 1; lunge = Math.max(lunge, 0.6); shake = Math.max(shake, 5); } // lo ha oído
-        waves.splice(k, 1);
-      }
+      if (p.life <= 0 || p.x < -40 || p.y < -40 || p.x > W + 40 || p.y > H + 40) sonic.splice(k, 1);
     }
     for (let k = sparks.length - 1; k >= 0; k--) {
       const s = sparks[k];
       s.x += s.vx * f;
       s.y += s.vy * f;
       s.vx *= Math.pow(0.92, f);
-      s.vy = s.vy * Math.pow(0.92, f) + 0.12 * f; // gotean
+      s.vy = s.vy * Math.pow(0.92, f) + 0.1 * f; // gotean
       if ((s.life -= 0.025 * f) <= 0) sparks.splice(k, 1);
     }
+    for (let k = bolts.length - 1; k >= 0; k--) if ((bolts[k].life -= bolts[k].decay * f) <= 0) bolts.splice(k, 1);
+    // mientras el botón se carga, chisporrotea cada vez más
+    if (charge && motion) {
+      const k = Math.min(1, (performance.now() - charge.since) / 1000);
+      if (Math.random() < 0.08 + k * 0.5) {
+        const r = vcardBtn.getBoundingClientRect(), s = stage.getBoundingClientRect();
+        const a = Math.random() * Math.PI * 2;
+        const x = r.left - s.left + r.width / 2 + Math.cos(a) * r.width * 0.5, y = r.top - s.top + r.height / 2 + Math.sin(a) * r.height * 0.6;
+        bolts.push({ x, y, a, l: 12 + k * 30 * Math.random(), life: 1, decay: 0.14 });
+      }
+    }
 
-    // chispas: aleteo, intro, el ratón las aparta y las enfría, y el anillo las ilumina al pasar
-    // aleteo con golpe: baja rápido y sube despacio; al chillar, sacudidas cortas y una embestida hacia delante
+    // fondo
+    for (const m of motes) {
+      m.y -= (m.v * f) / Math.max(H, 1);
+      if (m.y < -0.02) { m.y = 1.02; m.x = Math.random(); }
+    }
+    nextFlock -= dt;
+    if (motion && nextFlock <= 0) {
+      nextFlock = 5 + Math.random() * 7;
+      const dir = Math.random() < 0.5 ? 1 : -1, y0 = H * (0.08 + Math.random() * 0.5);
+      for (let i = 0, n = 1 + ((Math.random() * 3) | 0); i < n; i++) {
+        flock.push({ x: dir > 0 ? -30 - i * 40 : W + 30 + i * 40, y: y0 + (Math.random() - 0.5) * 60, vx: dir * (1.1 + Math.random() * 0.8), s: 5 + Math.random() * 6, ph: Math.random() * 6.3 });
+      }
+    }
+    for (let k = flock.length - 1; k >= 0; k--) {
+      const b = flock[k];
+      b.x += b.vx * f;
+      b.y += Math.sin(time * 2 + b.ph) * 0.4 * f;
+      if (b.x < -80 || b.x > W + 80) flock.splice(k, 1);
+    }
+
+    // el murciélago: aleteo con golpe (baja rápido y sube despacio); al chillar, sacudidas y embestida
     const beat = Math.sin(time * 2.3);
-    const flap = (motion ? 0.09 * Math.sign(beat) * Math.abs(beat) ** 0.55 : 0) + flapBig * 0.22 * Math.sin(time * 14);
-    const bob = motion ? Math.sin(time * 2.3 + 0.6) * 5 - lunge * 6 : 0;
-    const zoom = 1 + lunge * 0.05;
+    flap = (motion ? 0.08 * Math.sign(beat) * Math.abs(beat) ** 0.55 : 0) + flapBig * 0.2 * Math.sin(time * 14);
+    bob = motion ? Math.sin(time * 2.3 + 0.6) * 5 - lunge * 6 : 0;
+    zoom = 1 + lunge * 0.05;
     const R = mobile ? 60 : 90;
     // la sangre: corre a borbotones con cada latido y se vuelve loca al chillar
-    const beatPump = 0.45 + 1.2 * Math.max(0, Math.sin(time * 2.6)) ** 4 + lunge * 1.5;
-    const sp = 0.16 * dt * beatPump; // en unidades del ala
+    const pump = 0.45 + 1.2 * Math.max(0, Math.sin(time * 2.6)) ** 4 + lunge * 1.5;
+    const sp = 0.16 * dt * pump; // en unidades del ala
     for (const p of parts) {
       if (p.kind === 2 && motion && introT >= INTRO) {
         p.ang += (Math.random() - 0.5) * 0.9 * f;
@@ -2932,15 +3042,10 @@ function initContact() {
           p.ux = nx;
           p.uy = ny;
           p.side = Math.sign(nx) || 1;
-          p.w = Math.min(1, Math.max(0, (Math.abs(nx) - 0.08) / 0.92));
+          p.w = wingW(nx);
         } else p.ang += Math.PI * (0.6 + Math.random() * 0.8); // rebota contra el borde
       }
-      const sx = p.side * 0.08, sy = -0.05; // hombro
-      const dx = p.ux - sx, dy = p.uy - sy;
-      const a = p.w > 0 ? flap * p.side * (0.5 + 0.5 * p.w) : 0;
-      const c = Math.cos(a), s = Math.sin(a);
-      let X = cx + (sx + dx * c + dy * s) * S * zoom;
-      let Y = cy + bob + (sy - dx * s + dy * c) * S * zoom;
+      let [X, Y] = toScreen(p.ux, p.uy);
       p.a = 1;
       if (introT < INTRO + 1.2) {
         const lt = Math.min(1, Math.max(0, (introT - p.delay) / 1.1));
@@ -2964,111 +3069,64 @@ function initContact() {
       p.ox += p.vx * f;
       p.oy += p.vy * f;
       p.ice = Math.max(p.ice * Math.pow(0.95, f), Math.min(1, Math.hypot(p.ox, p.oy) / 30));
-      for (const w of waves) {
-        if (w.full && Math.abs(Math.hypot(X - w.x, Y - w.y) - w.r) < 12) p.ice = 1;
-      }
       p.X = X + p.ox;
       p.Y = Y + p.oy;
     }
   };
 
   /* ----- Pintado ----- */
+  const tinyBat = (x, y, s, fl) => {
+    const wy = -s * 0.45 * fl;
+    ctx.beginPath();
+    ctx.moveTo(x, y - s * 0.1);
+    ctx.quadraticCurveTo(x + s * 0.45, y - s * 0.15 + wy, x + s, y + wy);
+    ctx.quadraticCurveTo(x + s * 0.7, y + wy * 0.4 + s * 0.1, x + s * 0.55, y + s * 0.18);
+    ctx.quadraticCurveTo(x + s * 0.3, y + s * 0.05, x, y + s * 0.25);
+    ctx.quadraticCurveTo(x - s * 0.3, y + s * 0.05, x - s * 0.55, y + s * 0.18);
+    ctx.quadraticCurveTo(x - s * 0.7, y + wy * 0.4 + s * 0.1, x - s, y + wy);
+    ctx.quadraticCurveTo(x - s * 0.45, y - s * 0.15 + wy, x, y - s * 0.1);
+    ctx.fill();
+  };
+
   const draw = () => {
     ctx.clearRect(0, 0, W, H);
-    // fogonazo rojo en los bordes cuando chilla de verdad
-    if (flash > 0.02) {
-      const v = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.75);
-      v.addColorStop(0, rgba(RED, 0));
-      v.addColorStop(1, rgba(RED, 0.28 * flash));
-      ctx.fillStyle = v;
-      ctx.fillRect(0, 0, W, H);
-    }
     ctx.save();
     if (shake > 0.3) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
     ctx.globalCompositeOperation = "lighter";
 
-    // chillidos: un frente dentado que vibra, rojo sangre con el filo al blanco y una estela que arde detrás
-    for (const w of waves) {
-      if (w.echo) continue;
-      const fade = Math.pow(1 - Math.min(1, w.r / w.max), 0.7) * Math.min(1, w.r / 30);
-      if (fade <= 0.01) continue;
-      const band = w.full ? 90 : 60;
-      const r0 = Math.max(0, w.r - band);
-      const a0 = w.full ? 0 : w.dir - w.spread, a1 = w.full ? Math.PI * 2 : w.dir + w.spread;
-      const trail = ctx.createRadialGradient(w.x, w.y, r0, w.x, w.y, w.r);
-      trail.addColorStop(0, rgba(RED, 0));
-      trail.addColorStop(0.8, rgba(RED, 0.12 * fade));
-      trail.addColorStop(1, rgba(RED, 0.3 * fade));
-      ctx.fillStyle = trail;
+    // fondo: ceniza que sube balanceándose y algún murciélago lejano cruzando
+    for (const m of motes) {
+      const x = m.x * W + Math.sin(time * 0.6 + m.ph) * 14, y = m.y * H;
+      ctx.globalAlpha = 0.18 + 0.14 * Math.sin(time * 1.3 + m.ph);
+      ctx.drawImage(m.red ? SPR_RED : SPR_AMBER, x - m.r * 2, y - m.r * 2, m.r * 4, m.r * 4);
+    }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "rgba(255, 110, 60, 0.13)";
+    for (const b of flock) tinyBat(b.x, b.y, b.s, Math.sin(time * 13 + b.ph));
+
+    // telaraña: hilos finos de plata que se estiran con el aleteo
+    if (introT >= INTRO) {
+      const show = Math.min(1, (introT - INTRO) / 1.2);
+      const hub = toScreen(...WEB_HUB);
+      const anchors = WEB_ANCHORS.map(([x, y]) => toScreen(x, y));
+      ctx.lineWidth = 0.7;
+      ctx.strokeStyle = `rgba(200, 220, 255, ${0.16 * show})`;
       ctx.beginPath();
-      ctx.arc(w.x, w.y, w.r, a0, a1);
-      ctx.arc(w.x, w.y, r0, a1, a0, true);
-      ctx.closePath();
-      ctx.fill();
-      // filo dentado: el radio tiembla con dos ruidos rápidos; en abanico se apaga hacia los extremos
-      const n = Math.max(24, Math.ceil(((a1 - a0) * w.r) / 6));
-      const amp = 3 + 9 * fade;
-      for (const [col, lw, off, al] of [[RED, 3, 0, 0.7], [[255, 230, 225], 1, -2, 0.9]]) {
-        ctx.lineWidth = lw;
-        ctx.beginPath();
-        for (let i = 0; i <= n; i++) {
-          const t = i / n, a = a0 + (a1 - a0) * t;
-          const j = Math.sin(a * 37 + w.seed + time * 31) * 0.6 + Math.sin(a * 91 - time * 47 + w.seed) * 0.4;
-          const rr = w.r + off + j * amp * (i % 2 ? 1 : -0.4);
-          const x = w.x + Math.cos(a) * rr, y = w.y + Math.sin(a) * rr;
-          i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      for (const [x, y] of anchors) { ctx.moveTo(hub[0], hub[1]); ctx.lineTo(x, y); }
+      for (let r = 1; r <= 4; r++) {
+        const t = r / 5;
+        for (let i = 0; i < anchors.length - 1; i++) {
+          const [ax, ay] = anchors[i], [bx, by] = anchors[i + 1];
+          const x0 = hub[0] + (ax - hub[0]) * t, y0 = hub[1] + (ay - hub[1]) * t;
+          const x1 = hub[0] + (bx - hub[0]) * t, y1 = hub[1] + (by - hub[1]) * t;
+          ctx.moveTo(x0, y0);
+          ctx.quadraticCurveTo((x0 + x1) / 2 + (hub[0] - (x0 + x1) / 2) * 0.12, (y0 + y1) / 2 + (hub[1] - (y0 + y1) / 2) * 0.12, x1, y1);
         }
-        const edge = w.full ? 1 : 0.85;
-        ctx.strokeStyle = rgba(col, al * fade * edge);
-        ctx.stroke();
       }
-    }
-
-    // retornos: un rayo que vuelve serpenteando desde la presa hasta la boca, y parpadea
-    for (const w of waves) {
-      if (!w.echo) continue;
-      const k = Math.min(1, w.r / w.max);
-      const tx = w.x + (hx - w.x) * k, ty = w.y + (hy - w.y) * k;
-      const len = Math.hypot(tx - w.x, ty - w.y);
-      if (len < 2) continue;
-      const nx = -(ty - w.y) / len, ny = (tx - w.x) / len;
-      const segs = Math.max(4, Math.ceil(len / 22));
-      const pts = [];
-      for (let i = 0; i <= segs; i++) {
-        const t = i / segs, jit = i === 0 || i === segs ? 0 : (Math.random() - 0.5) * 26;
-        pts.push([w.x + (tx - w.x) * t + nx * jit, w.y + (ty - w.y) * t + ny * jit]);
-      }
-      for (const [col, lw, al] of [[RED, 6, 0.25], [AMBER, 2.5, 0.6], [[255, 245, 235], 1, 0.95]]) {
-        ctx.lineWidth = lw;
-        ctx.strokeStyle = rgba(col, al * (0.6 + 0.4 * Math.random()));
-        ctx.beginPath();
-        pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
-        ctx.stroke();
-      }
-      ctx.globalAlpha = 1;
-      ctx.drawImage(SPR_RED, tx - 14, ty - 14, 28, 28);
-    }
-
-    // haz de fijación hacia el enlace que tienes encima
-    const locked = targets.find((t) => t.hover && t.found);
-    if (locked && firstRing) {
-      const gr = ctx.createLinearGradient(hx, hy, locked.x, locked.y);
-      gr.addColorStop(0, rgba(RED, 0.1));
-      gr.addColorStop(1, rgba(RED, 0.7));
-      ctx.strokeStyle = gr;
-      ctx.setLineDash([2, 7]);
-      ctx.lineDashOffset = -time * 40;
-      ctx.beginPath();
-      ctx.moveTo(hx, hy);
-      ctx.lineTo(locked.x, locked.y);
       ctx.stroke();
-      ctx.setLineDash([]);
-      const t = (time * 0.9) % 1;
-      ctx.globalAlpha = 1;
-      ctx.drawImage(SPR_RED, hx + (locked.x - hx) * t - 9, hy + (locked.y - hy) * t - 9, 18, 18);
     }
 
-    // halo cálido detrás del cuerpo
+    // halo detrás del cuerpo
     ctx.save();
     ctx.translate(cx, cy);
     ctx.scale(1, 0.45);
@@ -3095,9 +3153,8 @@ function initContact() {
 
     // ojos: rojos, rasgados hacia dentro (ceño), miran hacia lo que persiguen y se encienden al chillar
     if (eyes > 0) {
-      const bob = motion ? Math.sin(time * 2.3 + 0.6) * 5 - lunge * 6 : 0;
       for (const side of [-1, 1]) {
-        const ex = cx + side * 0.027 * S + lookX * 2, ey = cy + bob - 0.072 * S + lookY * 2;
+        const ex = cx + side * 0.045 * S + lookX * 2, ey = cy + bob - 0.058 * S + lookY * 2; // bajo el ceño
         const r = (mobile ? 7 : 10) * (1 + eyeFlash * 0.7);
         ctx.save();
         ctx.translate(ex, ey);
@@ -3109,6 +3166,45 @@ function initContact() {
         ctx.drawImage(SPR_RED, -r * 0.7, -r * 0.7, r * 1.4, r * 1.4);
         ctx.drawImage(SPR_RED, -r * 0.4, -r * 0.4, r * 0.8, r * 0.8);
         ctx.restore();
+      }
+    }
+
+    // ultrasonidos: estelas cortas, rojas al salir y ámbar al volver, con la cabeza encendida
+    for (const back of [false, true]) {
+      ctx.lineWidth = back ? 1.6 : 1.2;
+      ctx.strokeStyle = back ? rgba(AMBER, 0.75) : "rgba(255, 90, 80, 0.4)";
+      ctx.beginPath();
+      for (const p of sonic) {
+        if (p.back !== back || p.life <= 0) continue;
+        const tl = back ? 3.2 : 2.4;
+        ctx.moveTo(p.x - p.vx * tl, p.y - p.vy * tl);
+        ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+    }
+    for (const p of sonic) {
+      ctx.globalAlpha = p.back ? 1 : Math.min(1, p.life * 1.4);
+      const r = p.back ? 5 : 3.5;
+      ctx.drawImage(p.back ? SPR_AMBER : SPR_RED, p.x - r, p.y - r, r * 2, r * 2);
+    }
+
+    // rayos de energía
+    for (const b of bolts) {
+      const pts = [[b.x, b.y]];
+      let x = b.x, y = b.y, a = b.a;
+      const n = Math.max(3, Math.round(b.l / 12));
+      for (let i = 0; i < n; i++) {
+        a += (Math.random() - 0.5) * 1.1;
+        x += Math.cos(a) * (b.l / n);
+        y += Math.sin(a) * (b.l / n);
+        pts.push([x, y]);
+      }
+      for (const [col, lw, al] of [[ICE, 4, 0.25], [[205, 232, 255], 1.2, 0.95]]) {
+        ctx.lineWidth = lw;
+        ctx.strokeStyle = rgba(col, al * b.life);
+        ctx.beginPath();
+        pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
+        ctx.stroke();
       }
     }
 
@@ -3133,17 +3229,25 @@ function initContact() {
     cursor.in = true;
   });
   stage.addEventListener("pointerleave", () => (cursor.in = false));
-  // al reventar el botón de contacto, el murciélago chilla con todo
+  stage.addEventListener("echo:charge", (e) => (charge = e.detail.on ? { since: performance.now() } : null));
+  // al reventar el botón de contacto: rayos y una onda de sonido desde el botón, y el murciélago chilla con todo
   stage.addEventListener("echo:burst", (e) => {
+    charge = null;
+    const { x, y } = e.detail;
+    zap(x, y, 16, mobile ? 120 : 190);
+    for (let i = 0; i < 50; i++) {
+      const a = Math.random() * Math.PI * 2, v = 3 + Math.random() * 9;
+      sparks.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, red: Math.random() < 0.35 });
+    }
     if (!firstRing) return;
-    emit(0, Math.PI, Math.hypot(W, H), true);
-    emitTo(e.detail.x, e.detail.y, 0.4);
+    emit(0, Math.PI, mobile ? 140 : 220, true, x, y);
+    emitTo(x, y, 0.25, 50);
   });
-  // en táctil: un toque es un grito hacia ese punto y aparta las chispas un momento
+  // en táctil: un toque es un chillido hacia ese punto y aparta las chispas un momento
   stage.addEventListener("pointerdown", (e) => {
     if (e.pointerType === "mouse" || !firstRing) return;
     const [x, y] = local(e);
-    emitTo(x, y, 0.5);
+    emitTo(x, y, 0.35, 60);
     for (const p of parts) {
       const dx = p.X - x, dy = p.Y - y, d = Math.hypot(dx, dy);
       if (d < 80 && d > 1) { p.vx += (dx / d) * 8; p.vy += (dy / d) * 8; }
