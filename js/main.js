@@ -34,6 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initHeroGlobe();
   initSkillsNetwork();
   initTimeline();
+  initContact();
   initNameGlitch();
 
   if (animate) {
@@ -2461,4 +2462,124 @@ function initTimeline() {
       for (const t of trees) t.g = charge.p * total >= t.at - 1 ? 1 : 0;
     }
   }).observe(timeline);
+}
+
+
+/* ---------- Contacto: tarjeta de visita que se inclina, brilla y se da la vuelta ---------- */
+function initContact() {
+  const card = document.getElementById("bizcard");
+  if (!card) return;
+  const inner = card.querySelector(".bizcard__inner");
+  const front = card.querySelector(".bizcard__face--front");
+  const back = card.querySelector(".bizcard__face--back");
+  const flipBtn = card.querySelector(".bizcard__flip");
+  const toast = document.querySelector(".contact__toast");
+
+  // el estado de disponibilidad, el mismo que el del hero
+  const status = card.querySelector(".bizcard__status");
+  if (ESTADO_DISPONIBILIDAD in ESTADOS) {
+    status.dataset.state = ESTADO_DISPONIBILIDAD;
+    status.querySelector("[data-status]").textContent = ESTADOS[ESTADO_DISPONIBILIDAD];
+  }
+
+  let toastTimer;
+  const say = (text) => {
+    toast.textContent = text;
+    toast.classList.add("is-on");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove("is-on"), 2200);
+  };
+
+  // la cara que no se ve no recibe foco ni clics
+  const flip = (to = !card.classList.contains("is-flipped")) => {
+    card.classList.toggle("is-flipped", to);
+    flipBtn.setAttribute("aria-pressed", String(to));
+    front.inert = to;
+    back.inert = !to;
+  };
+  flip(false);
+  flipBtn.addEventListener("click", () => flip());
+  inner.addEventListener("click", (e) => {
+    if (!e.target.closest("a, button")) flip();
+  });
+
+  // inclinación y lámina holográfica siguiendo al ratón
+  if (!prefersReducedMotion) {
+    let raf = 0, px = 0.5, py = 0.5;
+    const apply = () => {
+      raf = 0;
+      card.style.setProperty("--rx", `${(0.5 - py) * 14}deg`);
+      card.style.setProperty("--ry", `${(px - 0.5) * 20}deg`);
+      card.style.setProperty("--sx", `${(0.5 - px) * 24}px`);
+      card.style.setProperty("--mx", px.toFixed(3));
+      card.style.setProperty("--my", py.toFixed(3));
+    };
+    inner.addEventListener("pointermove", (e) => {
+      if (e.pointerType !== "mouse") return;
+      const r = inner.getBoundingClientRect();
+      px = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+      py = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+      card.classList.add("is-hover");
+      raf ||= requestAnimationFrame(apply);
+    });
+    inner.addEventListener("pointerleave", () => {
+      px = py = 0.5;
+      card.classList.remove("is-hover");
+      raf ||= requestAnimationFrame(apply);
+    });
+
+    // entrada: la tarjeta cae girando sobre la mesa y se endereza
+    if (window.gsap && window.ScrollTrigger) {
+      gsap.from(inner, {
+        y: 120,
+        rotationX: 55,
+        rotationZ: -10,
+        autoAlpha: 0,
+        duration: 1.3,
+        ease: "power3.out",
+        clearProps: "transform,opacity,visibility",
+        scrollTrigger: { trigger: card, start: "top 85%", once: true },
+      });
+    }
+  }
+
+  // copiar el email
+  card.querySelectorAll("[data-copy]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(btn.dataset.copy);
+        btn.textContent = "copiado ✓";
+        btn.classList.add("is-done");
+        say("> email copiado al portapapeles");
+        setTimeout(() => {
+          btn.textContent = "copiar";
+          btn.classList.remove("is-done");
+        }, 1800);
+      } catch {
+        say(btn.dataset.copy);
+      }
+    });
+  });
+
+  // guardar contacto: una vCard generada aquí mismo
+  document.querySelectorAll("[data-vcard]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const vcard = [
+        "BEGIN:VCARD",
+        "VERSION:3.0",
+        "N:Rincón Mateeva;Enrique;;;",
+        "FN:Enrique Rincón",
+        "TITLE:Full Stack Developer",
+        "EMAIL;TYPE=INTERNET:rincon.enriquemv@gmail.com",
+        "URL:https://www.linkedin.com/in/enrique-rincón-mateeva-264845363",
+        "URL:https://github.com/rinconn",
+        "END:VCARD",
+      ].join("\r\n");
+      const url = URL.createObjectURL(new Blob([vcard], { type: "text/vcard;charset=utf-8" }));
+      const a = Object.assign(document.createElement("a"), { href: url, download: "enrique-rincon.vcf" });
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      say("> contacto guardado");
+    });
+  });
 }
