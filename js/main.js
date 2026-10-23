@@ -371,7 +371,7 @@ function initHeroIntro() {
     .fromTo(".hero__role", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4 }, "-=0.7");
 }
 
-/* ---------- Globo de puntos del hero: una nube de tormenta que gira (canvas, sin librerías) ---------- */
+/* ---------- Globo del hero: una nube de humo con tormenta eléctrica dentro (canvas, sin librerías) ---------- */
 function initHeroGlobe() {
   const canvas = document.getElementById("heroGlobe");
   if (!canvas) return;
@@ -381,7 +381,7 @@ function initHeroGlobe() {
   const toRgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
   const lighten = (rgb, k) => `rgb(${rgb.map((c) => Math.round(c + (255 - c) * k)).join(", ")})`;
 
-  // Puntos en el color de acento (violeta, leído del CSS); las descargas van en aqua para que destaquen.
+  // Puntos y humo en el color de acento (violeta, leído del CSS); los relámpagos encienden el humo en aqua.
   const accent = toRgb(getComputedStyle(document.documentElement).getPropertyValue("--accent").trim());
   const dotColor = `rgb(${accent.join(", ")})`;
   const plasmaRgb = toRgb("#21e6c1");
@@ -503,47 +503,19 @@ function initHeroGlobe() {
     ctx.globalAlpha = 1;
   };
 
-  /* --- Tormenta: la esfera es una nube y dentro saltan descargas --- */
-  // Con el ratón encima gira rápido (y frena con inercia al salir) y las descargas se vuelven frecuentes.
-  // Cada descarga une dos puntos del interior que giran con la esfera, parpadea, a veces repite
-  // (como un relámpago de verdad) e ilumina por dentro los puntos de su alrededor.
+  /* --- Tormenta: la esfera es una nube de humo y los relámpagos la iluminan por dentro --- */
+  // Nada de rayos dibujados: como un relámpago visto a través de las nubes, lo que se ve es el humo
+  // encendiéndose a parpadeos (a veces el destello se arrastra por dentro de un punto a otro).
+  // Con el ratón encima gira deprisa y la tormenta se desata.
   const fine = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
   const pointer = { x: 0, y: 0, active: false }; // posición del ratón en la ventana
   let rect = null;   // posición del canvas en pantalla (caché)
   let hover = 0;     // 0 → 1, suavizado
   let nextStrike = 1800;
-  let flash = 0;     // la nube iluminada por dentro
-  const strike = { on: false, life: 0, total: 0, again: false, a: new Float32Array(3), b: new Float32Array(3), nextZig: 0, alpha: 0 };
+  let flash = 0;     // intensidad del destello ahora mismo
+  // relámpago: viaja entre dos puntos del interior (giran con la esfera) en 2–4 pulsos
+  const strike = { on: false, t: 0, total: 0, pulses: [], a: new Float32Array(3), b: new Float32Array(3) };
   const mid = { x: 0, y: 0, depth: 0 };
-
-  // Buffers de rayos reservados una vez y reutilizados en cada parpadeo
-  const MAX_BOLTS = 8;              // 1 principal + ramas
-  const MAX_POINTS = (1 << 6) + 1;  // subdivisión de profundidad 6
-  const boltX = Array.from({ length: MAX_BOLTS }, () => new Float32Array(MAX_POINTS));
-  const boltY = Array.from({ length: MAX_BOLTS }, () => new Float32Array(MAX_POINTS));
-  const boltLen = new Int32Array(MAX_BOLTS);
-  const boltKind = new Int8Array(MAX_BOLTS); // 0 principal, 1 rama
-  const STRENGTHS = [1, 0.5];
-  let boltCount = 0;
-
-  // Rayo en zigzag por subdivisión del punto medio, escrito en el buffer `slot`
-  const zigzagInto = (slot, x1, y1, x2, y2, disp, depth) => {
-    const X = boltX[slot], Y = boltY[slot];
-    const n = 1 << depth;
-    X[0] = x1; Y[0] = y1; X[n] = x2; Y[n] = y2;
-    for (let step = n; step > 1; step >>= 1) {
-      const half = step >> 1;
-      for (let i = 0; i < n; i += step) {
-        const ax = X[i], ay = Y[i], bx = X[i + step], by = Y[i + step];
-        const len = Math.hypot(bx - ax, by - ay) || 1;
-        const off = (Math.random() - 0.5) * disp;
-        X[i + half] = (ax + bx) / 2 - ((by - ay) / len) * off;
-        Y[i + half] = (ay + by) / 2 + ((bx - ax) / len) * off;
-      }
-      disp /= 2;
-    }
-    boltLen[slot] = n + 1;
-  };
 
   // de la esfera (unidades) a pantalla, con el mismo giro que los puntos
   let cosY = 1, sinY = 0, cosX = 1, sinX = 0;
@@ -558,48 +530,87 @@ function initHeroGlobe() {
     out.depth = z2;
   };
   const pa = { x: 0, y: 0, depth: 0 }, pb = { x: 0, y: 0, depth: 0 };
-
   const randomInside = (out, rMin, rMax) => {
     const u = Math.random() * 2 - 1, t = Math.random() * Math.PI * 2, s = Math.sqrt(1 - u * u);
     const r = rMin + Math.random() * (rMax - rMin);
     out[0] = Math.cos(t) * s * r; out[1] = u * r; out[2] = Math.sin(t) * s * r;
   };
-  const fire = () => {
-    randomInside(strike.a, 0.15, 0.6);
-    // el otro extremo, lejos del primero pero sin salirse de la nube
-    for (let k = 0; k < 6; k++) {
-      randomInside(strike.b, 0.45, 0.9);
-      const d = Math.hypot(strike.b[0] - strike.a[0], strike.b[1] - strike.a[1], strike.b[2] - strike.a[2]);
-      if (d > 0.6) break;
-    }
-    strike.on = true;
-    strike.total = strike.life = 160 + Math.random() * 200;
-    strike.again = Math.random() < 0.4; // doble descarga
-    strike.nextZig = 0;
-    flash = 1;
-  };
 
-  const rebuild = () => {
-    project(strike.a, pa);
-    project(strike.b, pb);
-    mid.x = (pa.x + pb.x) / 2;
-    mid.y = (pa.y + pb.y) / 2;
-    mid.depth = (pa.depth + pb.depth) / 2;
-    const len = Math.hypot(pb.x - pa.x, pb.y - pa.y);
-    boltCount = 1;
-    zigzagInto(0, pa.x, pa.y, pb.x, pb.y, len * 0.3, 6);
-    boltKind[0] = 0;
-    const angle = Math.atan2(pb.y - pa.y, pb.x - pa.x);
-    const branches = 2 + ((Math.random() * 3) | 0);
-    for (let k = 0; k < branches && boltCount < MAX_BOLTS; k++) {
-      const from = Math.floor(boltLen[0] * (0.2 + Math.random() * 0.6));
-      const bx = boltX[0][from], by = boltY[0][from];
-      const bAngle = angle + (Math.random() < 0.5 ? -1 : 1) * (0.4 + Math.random() * 0.7);
-      const bLen = len * (0.12 + Math.random() * 0.25);
-      const slot = boltCount++;
-      zigzagInto(slot, bx, by, bx + Math.cos(bAngle) * bLen, by + Math.sin(bAngle) * bLen, bLen * 0.4, 4);
-      boltKind[slot] = 1;
+  // Humo: ruido fractal pintado una vez en una textura con el borde fundido en círculo,
+  // en violeta (la nube) y en aqua-blanco (la nube cuando la ilumina un relámpago)
+  const SMOKE = 256;
+  const makeSmoke = (seed, [r, g, b], gain) => {
+    const c = document.createElement("canvas");
+    c.width = c.height = SMOKE;
+    const x = c.getContext("2d");
+    const img = x.createImageData(SMOKE, SMOKE);
+    // ruido de valor en una rejilla con interpolación suave, 5 octavas
+    const N = 64, grid = new Float32Array(N * N);
+    let s = seed;
+    for (let i = 0; i < grid.length; i++) grid[i] = ((s = (s * 16807) % 2147483647) / 2147483647);
+    const val = (x, y) => {
+      const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+      const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+      const at = (i, j) => grid[((j & (N - 1)) * N) + (i & (N - 1))];
+      return at(xi, yi) * (1 - u) * (1 - v) + at(xi + 1, yi) * u * (1 - v) + at(xi, yi + 1) * (1 - u) * v + at(xi + 1, yi + 1) * u * v;
+    };
+    for (let py = 0; py < SMOKE; py++) {
+      for (let px2 = 0; px2 < SMOKE; px2++) {
+        let n = 0, amp = 0.5, f = 3 / SMOKE;
+        for (let o = 0; o < 5; o++) { n += val(px2 * f, py * f) * amp; amp *= 0.5; f *= 2; }
+        const dx = px2 / SMOKE * 2 - 1, dy = py / SMOKE * 2 - 1, d = Math.sqrt(dx * dx + dy * dy);
+        const edge = Math.max(0, 1 - d) ** 0.9; // se funde hacia el borde de la esfera
+        const a = Math.max(0, (n - 0.32) * 2) ** 1.3 * edge * gain; // volutas, con huecos entre ellas
+        const k = (py * SMOKE + px2) * 4;
+        img.data[k] = r; img.data[k + 1] = g; img.data[k + 2] = b;
+        img.data[k + 3] = Math.min(255, a * 255);
+      }
     }
+    x.putImageData(img, 0, 0);
+    return c;
+  };
+  const smokeA = makeSmoke(7, accent, 1);
+  const smokeB = makeSmoke(1337, accent, 1);
+  const smokeLit = makeSmoke(7, [215, 255, 248], 1.6); // misma forma que la capa A, ya encendida
+  // lienzo de trabajo para "humo × destello" (solo se usa mientras hay relámpago)
+  const litCanvas = document.createElement("canvas");
+  litCanvas.width = litCanvas.height = SMOKE;
+  const litCtx = litCanvas.getContext("2d");
+
+  // Brillo radial pre-renderizado una vez; en cada fotograma solo se copia
+  const glowSprite = document.createElement("canvas");
+  glowSprite.width = glowSprite.height = 128;
+  const gctx = glowSprite.getContext("2d");
+  const grad = gctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grad.addColorStop(0, "#ffffff");
+  grad.addColorStop(0.2, plasmaCore);
+  grad.addColorStop(0.5, plasmaColor);
+  grad.addColorStop(1, "transparent");
+  gctx.fillStyle = grad;
+  gctx.fillRect(0, 0, 128, 128);
+  // punto aqua para encender los puntos que rodean el destello
+  const litSprite = document.createElement("canvas");
+  litSprite.width = litSprite.height = 16;
+  const lctx = litSprite.getContext("2d");
+  lctx.fillStyle = plasmaCore;
+  lctx.arc(8, 8, 8, 0, Math.PI * 2);
+  lctx.fill();
+
+  const fire = () => {
+    randomInside(strike.a, 0.1, 0.65);
+    randomInside(strike.b, 0.1, 0.65);
+    strike.on = true;
+    strike.t = 0;
+    // pulsos [inicio, duración, fuerza] en ms: parpadeo irregular, el primero el más fuerte
+    const n = 2 + ((Math.random() * 3) | 0);
+    let at = 0;
+    strike.pulses = Array.from({ length: n }, (_, i) => {
+      const p = [at, 50 + Math.random() * 90, i === 0 ? 1 : 0.45 + Math.random() * 0.5];
+      at += p[1] + 30 + Math.random() * 90;
+      return p;
+    });
+    strike.total = at + 200;
+    strike.crawl = Math.random() < 0.5; // a veces se arrastra de a hasta b
   };
 
   const updateStorm = (time, dt, ms) => {
@@ -612,109 +623,83 @@ function initHeroGlobe() {
     }
     const was = hover;
     hover += ((hovering ? 1 : 0) - hover) * Math.min(1, (hovering ? 0.05 : 0.02) * dt);
-    if (hovering && was < 0.05) nextStrike = Math.min(nextStrike, time + 120); // al entrar, descarga enseguida
+    if (hovering && was < 0.05) nextStrike = Math.min(nextStrike, time + 150); // al entrar, relámpago enseguida
 
     if (!strike.on && time >= nextStrike) {
       fire();
-      // con el ratón encima, tormenta; sin él, algún relámpago suelto
-      nextStrike = time + (hovering ? 350 + Math.random() * 750 : 2200 + Math.random() * 3300) * (perf.low ? 1.5 : 1);
+      nextStrike = time + (hovering ? 500 + Math.random() * 900 : 2600 + Math.random() * 3400) * (perf.low ? 1.5 : 1);
     }
+    let target = 0;
     if (strike.on) {
-      strike.life -= ms;
-      if (strike.life <= 0) {
-        if (strike.again) {
-          strike.again = false;
-          strike.total = strike.life = 110 + Math.random() * 90;
-          strike.nextZig = 0;
-          flash = Math.max(flash, 0.8);
-        } else strike.on = false;
+      strike.t += ms;
+      for (const [start, dur, power] of strike.pulses) {
+        if (strike.t >= start && strike.t < start + dur) target = power * (0.75 + Math.random() * 0.25);
       }
-      // parpadeo: forma nueva cada 40–80 ms, y entre medias va siguiendo el giro
-      if (time >= strike.nextZig) {
-        rebuild();
-        strike.alpha = 0.6 + Math.random() * 0.4;
-        strike.nextZig = time + 40 + Math.random() * 40;
-      }
+      if (strike.t > strike.total) strike.on = false;
+      // dónde está la luz: fija en a, o arrastrándose hacia b
+      const k = strike.crawl ? Math.min(1, strike.t / strike.total) : 0;
+      project(strike.a, pa);
+      project(strike.b, pb);
+      mid.x = pa.x + (pb.x - pa.x) * k;
+      mid.y = pa.y + (pb.y - pa.y) * k;
+      mid.depth = pa.depth + (pb.depth - pa.depth) * k;
     }
-    flash = Math.max(0, flash - 0.045 * dt);
+    // sube de golpe y se apaga algo más despacio (el ojo retiene la luz)
+    flash = target > flash ? target : Math.max(0, flash - 0.09 * dt);
   };
 
-  // Brillo radial pre-renderizado una vez; en cada fotograma solo se copia
-  const glowSprite = document.createElement("canvas");
-  glowSprite.width = glowSprite.height = 128;
-  const gctx = glowSprite.getContext("2d");
-  const grad = gctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-  grad.addColorStop(0, "#ffffff");
-  grad.addColorStop(0.15, plasmaCore);
-  grad.addColorStop(0.45, plasmaColor);
-  grad.addColorStop(1, "transparent");
-  gctx.fillStyle = grad;
-  gctx.fillRect(0, 0, 128, 128);
-  // punto aqua para encender los puntos que rodean la descarga
-  const litSprite = document.createElement("canvas");
-  litSprite.width = litSprite.height = 16;
-  const lctx = litSprite.getContext("2d");
-  lctx.fillStyle = plasmaCore;
-  lctx.arc(8, 8, 8, 0, Math.PI * 2);
-  lctx.fill();
-
-  // Capas de fuera a dentro: aura aqua cada vez más estrecha y núcleo blanco. Con "lighter"
-  // se suman y el centro queda casi quemado (sin shadowBlur, que es caro). [grosor, opacidad, color]
-  const LAYERS = [
-    [12, 0.05, plasmaColor],
-    [6, 0.12, plasmaColor],
-    [3, 0.35, plasmaCore],
-    [1.1, 1, "#ffffff"],
-  ];
-
   const drawStorm = () => {
-    if (flash <= 0.01 && !strike.on) return;
+    // el humo gira despacio, cada capa en un sentido (más rápido con el ratón encima)
+    const R = radius * 1.08;
+    const turnA = rotY * 0.55, turnB = -rotY * 0.35 + 1.3;
     ctx.save();
-    ctx.globalCompositeOperation = "lighter"; // los brillos se suman, como la luz
-    // detrás de la esfera se ve más apagado
-    const depthK = 0.45 + 0.55 * ((mid.depth + 1) / 2);
-
-    if (flash > 0.01) {
-      // la nube se ilumina por dentro: un resplandor recortado a la esfera…
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(cx, cy, radius * 1.02, 0, Math.PI * 2);
-      ctx.clip();
-      ctx.globalAlpha = flash * 0.3 * depthK;
-      const g = radius * 0.95;
-      ctx.drawImage(glowSprite, mid.x - g, mid.y - g, g * 2, g * 2);
-      ctx.restore();
-      // …y los puntos de alrededor se encienden en aqua
-      const R = radius * 0.55, R2 = R * R;
-      for (let i = 0; i < count; i++) {
-        if (lvl[i] < 0) continue;
-        const dx = sx[i] - mid.x, dy = sy[i] - mid.y, d2 = dx * dx + dy * dy;
-        if (d2 > R2) continue;
-        const k = 1 - Math.sqrt(d2) / R;
-        ctx.globalAlpha = flash * k * k * 0.9 * levelAlpha[lvl[i]] * 1.6;
-        const r = sr[i] * 1.4 + 0.4;
-        ctx.drawImage(litSprite, sx[i] - r, sy[i] - r, r * 2, r * 2);
-      }
+    ctx.globalCompositeOperation = "lighter";
+    ctx.translate(cx, cy);
+    ctx.globalAlpha = 0.62;
+    ctx.rotate(turnA);
+    ctx.drawImage(smokeA, -R, -R, R * 2, R * 2);
+    if (!perf.low) {
+      ctx.globalAlpha = 0.42;
+      ctx.rotate(turnB - turnA);
+      ctx.drawImage(smokeB, -R * 1.12, -R * 1.12, R * 2.24, R * 2.24);
     }
+    ctx.restore();
 
-    if (strike.on) {
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      for (const [width, alpha, stroke] of LAYERS) {
-        ctx.lineWidth = width;
-        ctx.strokeStyle = stroke;
-        for (let kind = 0; kind < STRENGTHS.length; kind++) {
-          ctx.globalAlpha = alpha * STRENGTHS[kind] * strike.alpha * depthK;
-          ctx.beginPath();
-          for (let b = 0; b < boltCount; b++) {
-            if (boltKind[b] !== kind) continue;
-            const X = boltX[b], Y = boltY[b];
-            ctx.moveTo(X[0], Y[0]);
-            for (let i = 1; i < boltLen[b]; i++) ctx.lineTo(X[i], Y[i]);
-          }
-          ctx.stroke();
-        }
-      }
+    if (flash <= 0.01) return;
+    const depthK = 0.5 + 0.5 * ((mid.depth + 1) / 2); // detrás de la esfera se ve más apagado
+
+    // el humo se enciende alrededor del relámpago: (humo encendido) × (resplandor), en un lienzo aparte
+    const scale = SMOKE / (R * 2);
+    litCtx.globalCompositeOperation = "source-over";
+    litCtx.clearRect(0, 0, SMOKE, SMOKE);
+    litCtx.save();
+    litCtx.translate(SMOKE / 2, SMOKE / 2);
+    litCtx.rotate(turnA);
+    litCtx.drawImage(smokeLit, -SMOKE / 2, -SMOKE / 2, SMOKE, SMOKE);
+    litCtx.restore();
+    litCtx.globalCompositeOperation = "destination-in";
+    const gs = radius * 1.05 * scale;
+    const gx = (mid.x - cx + R) * scale, gy = (mid.y - cy + R) * scale;
+    litCtx.drawImage(glowSprite, gx - gs, gy - gs, gs * 2, gs * 2);
+
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = Math.min(1, flash * 1.6 * depthK);
+    ctx.drawImage(litCanvas, cx - R, cy - R, R * 2, R * 2);
+    // un núcleo de luz suave (sin contorno de rayo)
+    ctx.globalAlpha = flash * 0.5 * depthK;
+    const core = radius * 0.42;
+    ctx.drawImage(glowSprite, mid.x - core, mid.y - core, core * 2, core * 2);
+    // y los puntos de alrededor se encienden en aqua
+    const RL = radius * 0.5, RL2 = RL * RL;
+    for (let i = 0; i < count; i++) {
+      if (lvl[i] < 0) continue;
+      const dx = sx[i] - mid.x, dy = sy[i] - mid.y, d2 = dx * dx + dy * dy;
+      if (d2 > RL2) continue;
+      const k = 1 - Math.sqrt(d2) / RL;
+      ctx.globalAlpha = flash * k * k * levelAlpha[lvl[i]] * 1.4 * depthK;
+      const r = sr[i] * 1.4 + 0.4;
+      ctx.drawImage(litSprite, sx[i] - r, sy[i] - r, r * 2, r * 2);
     }
     ctx.restore();
   };
