@@ -91,14 +91,13 @@ ul {
   inset: 0 0 auto 0;
   height: var(--nav-h);
   z-index: 100;
-  transition: background 0.3s, border-color 0.3s, backdrop-filter 0.3s;
+  transition: background 0.3s, border-color 0.3s;
   border-bottom: 1px solid transparent;
 }
 
+/* sin backdrop-filter: desenfocar en cada frame los canvas animados de debajo era de lo más caro de la página */
 .nav.is-scrolled {
-  background: rgba(6, 8, 20, 0.72);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: rgba(6, 8, 20, 0.9);
   border-color: var(--border);
 }
 
@@ -1718,9 +1717,7 @@ ul {
     flex-direction: column;
     justify-content: center;
     gap: 2.5rem;
-    background: rgba(6, 8, 20, 0.96);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    background: rgba(6, 8, 20, 0.97);
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.3s;
@@ -1731,11 +1728,6 @@ ul {
     pointer-events: auto;
   }
 
-
-  .nav:has(.nav__menu.is-open) {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
 
   .nav__link {
     font-size: 1.4rem;
@@ -3440,4 +3432,11 @@ html.lenis body {
   .cmdk[open] .cmdk__box {
     animation: none;
   }
+}
+
+/* Calidad ligera (equipos justos, ver initPerfWatch): fuera los adornos animados que más repintan */
+.perf-low .blob,
+.perf-low .projects-glow img,
+.perf-low .nebula span {
+  animation: none !important;
 }

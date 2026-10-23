@@ -16,10 +16,19 @@ const animate = hasGSAP && !prefersReducedMotion;
 
 let lenis = null;
 
+// Calidad adaptativa: si el equipo no da la talla, los canvas bajan a 1× de resolución y aligeran partículas.
+// Se decide una sola vez (evento "perf:low") para que la web no vaya cambiando de calidad a saltos
+const perf = {
+  low: false,
+  dpr: (cap) => Math.min(window.devicePixelRatio || 1, perf.low ? 1 : cap),
+};
+
 document.addEventListener("DOMContentLoaded", () => {
   // Sin GSAP (o con movimiento reducido) se muestra todo tal cual
   if (!animate) document.documentElement.classList.remove("js-anim");
   else gsap.registerPlugin(ScrollTrigger);
+
+  initPerfWatch(); // antes que los canvas: en equipos muy justos ya arrancan en ligero
 
   initAvailability();
   initSocialInNav(); // antes que initNav, para que los iconos copiados también cierren el menú móvil
@@ -50,6 +59,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("year").textContent = new Date().getFullYear();
 });
+
+/* ---------- Vigila los fps: si van justos de forma sostenida, pasa a calidad ligera ---------- */
+function initPerfWatch() {
+  const setLow = () => {
+    if (perf.low) return;
+    perf.low = true;
+    document.documentElement.classList.add("perf-low");
+    window.dispatchEvent(new Event("perf:low"));
+  };
+  // equipos con muy pocos núcleos o memoria: ligero desde el principio
+  if ((navigator.hardwareConcurrency || 8) <= 2 || (navigator.deviceMemory || 8) <= 2) setLow();
+  if (prefersReducedMotion || perf.low) return;
+
+  // tandas de 90 frames; si en una más de la mitad pasa de 22 ms (< ~45 fps), se baja la calidad.
+  // Se ignoran los saltos enormes (cambio de pestaña) y los primeros segundos (la intro)
+  let last = 0, n = 0, slow = 0;
+  const tick = (t) => {
+    const d = t - last;
+    last = t;
+    if (d > 0 && d < 150 && !document.hidden) {
+      n++;
+      if (d > 22) slow++;
+    }
+    if (n >= 90) {
+      if (slow > n / 2) return setLow();
+      n = slow = 0;
+    }
+    requestAnimationFrame(tick);
+  };
+  setTimeout(() => requestAnimationFrame((t) => { last = t; requestAnimationFrame(tick); }), 3000);
+}
 
 /* ---------- Badge de disponibilidad del hero (color y texto según el estado) ---------- */
 function initAvailability() {
@@ -438,7 +478,7 @@ function initHeroGlobe() {
   const resize = () => {
     // En móvil el resize salta al mostrar/ocultar la barra de URL: si no cambia nada, no se toca
     if (canvas.clientWidth === w && canvas.clientHeight === h) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5); // más no se aprecia en puntos de 1–2 px
+    const dpr = perf.dpr(1.5); // más no se aprecia en puntos de 1–2 px
     w = canvas.clientWidth;
     h = canvas.clientHeight;
     canvas.width = Math.round(w * dpr);
@@ -449,7 +489,7 @@ function initHeroGlobe() {
     radius = mobile ? w * 0.7 : Math.min(w * 0.3, h * 0.5);
     cx = mobile ? w * 0.6 : w * 0.74;
     cy = mobile ? h * 1.0 : h * 0.66;
-    const n = mobile ? 900 : 2000;
+    const n = mobile ? 900 : perf.low ? 1200 : 2000;
     if (n !== count) buildPoints(n);
     rect = null;
   };
@@ -652,6 +692,7 @@ function initHeroGlobe() {
 
   resize();
   window.addEventListener("resize", resize);
+  window.addEventListener("perf:low", () => { w = 0; resize(); }); // fuerza a rehacerlo en ligero
 
   if (prefersReducedMotion) {
     draw(); // un fotograma estático
@@ -748,7 +789,7 @@ function initSkillsNetwork() {
   };
 
   const resize = () => {
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    const dpr = perf.dpr(1.5);
     w = canvas.clientWidth;
     h = canvas.clientHeight;
     canvas.width = Math.round(w * dpr);
@@ -812,6 +853,7 @@ function initSkillsNetwork() {
 
   resize();
   new ResizeObserver(() => { resize(); if (prefersReducedMotion) draw(); }).observe(section);
+  window.addEventListener("perf:low", resize);
 
   // Con movimiento reducido se queda como un fondo estático
   if (prefersReducedMotion) { draw(); return; }
@@ -1174,7 +1216,7 @@ function initTimeline() {
     timeline.style.setProperty("--track-h", `${bottom - top}px`);
 
     // El canvas solo mide lo que la pantalla (+ margen en móvil para cuando se esconde la barra del navegador)
-    dpr = Math.min(window.devicePixelRatio || 1, mobile ? 1.25 : 1.5);
+    dpr = perf.dpr(mobile ? 1.25 : 1.5);
     w = fx.clientWidth;
     H = fx.clientHeight;
     ch = Math.min(H, window.innerHeight + (mobile ? 120 : 0));
@@ -1793,6 +1835,7 @@ function initTimeline() {
     onRefresh: (self) => (charge.target = self.progress),
   });
   new ResizeObserver(() => { measure(); ScrollTrigger.refresh(); }).observe(timeline);
+  window.addEventListener("perf:low", measure);
   // si solo cambia el alto de la ventana (la barra del móvil no cuenta), el canvas se ajusta
   window.addEventListener("resize", () => {
     if (Math.abs(window.innerHeight + (mobile ? 120 : 0) - ch) > 140) measure();
@@ -2784,6 +2827,7 @@ function initContact() {
       sx: Math.random(), sy: Math.random() * 0.9,
       delay: Math.abs(ux) * 0.7 + Math.random() * 0.5,
       ox: 0, oy: 0, vx: 0, vy: 0, ice: 0, X: 0, Y: 0,
+      lite: Math.random() < 0.5, // en calidad ligera se salta la mitad de la sangre
     });
   };
   // separación de la malla: cada chispa es un drawImage por frame, así que es lo que más cuesta
@@ -2841,7 +2885,7 @@ function initContact() {
   let W = 0, H = 0, S = 1, cx = 0, cy = 0, hx = 0, hy = 0;
   const layout = () => {
     const r = stage.getBoundingClientRect();
-    const dpr = Math.min(window.devicePixelRatio || 1, mobile ? 1.25 : 1.5); // chispas difusas: más resolución no se aprecia
+    const dpr = perf.dpr(mobile ? 1.25 : 1.5); // chispas difusas: más resolución no se aprecia
     W = r.width;
     H = r.height;
     canvas.width = Math.round(W * dpr);
@@ -3147,6 +3191,7 @@ function initContact() {
 
     // fondo: ceniza que sube balanceándose y algún murciélago lejano cruzando
     for (const m of motes) {
+      if (perf.low && m.red) continue;
       const x = m.x * W + Math.sin(time * 0.6 + m.ph) * 14, y = m.y * H;
       ctx.globalAlpha = 0.18 + 0.14 * Math.sin(time * 1.3 + m.ph);
       ctx.drawImage(m.red ? SPR_RED : SPR_AMBER, x - m.r * 2, y - m.r * 2, m.r * 4, m.r * 4);
@@ -3192,6 +3237,7 @@ function initContact() {
     // el murciélago: un latido recorre la membrana desde el cuerpo hasta las puntas
     const t22 = time * 2.2, t26 = time * 2.6;
     for (const p of parts) {
+      if (perf.low && p.kind === 2 && p.lite) continue;
       const tw = 0.75 + 0.25 * Math.sin(t22 + p.ph);
       let pulse = 0;
       if (p.kind === 2 && motion) {
@@ -3333,6 +3379,7 @@ function initContact() {
     layout();
     if (!motion) { step(0); draw(); }
   }).observe(stage);
+  window.addEventListener("perf:low", layout);
 
   if (!motion) {
     targets.forEach((t) => { t.found = true; t.el.classList.add("is-found"); });
