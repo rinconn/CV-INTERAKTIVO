@@ -1080,11 +1080,42 @@ function initTimeline() {
   const STEPS = 90;      // muestras por tramo entre dos nodos
   const BOOT = 300;      // fotogramas (a 60 fps) que tarda el cerebro en arrancar
 
-  // Paleta: el hilo es fuego (ámbar → oro → brasa) y la electricidad es fría (hielo): rayos, sinapsis e impulsos
-  const PALETTE = { amber: [255, 163, 26], ice: [150, 214, 255], ember: [255, 84, 46], mint: [61, 255, 162] };
-  const KIND_COLOR = { work: "amber", edu: "ice", proj: "ember", next: "mint" };
-  const FLOW = [PALETTE.amber, [255, 208, 112], PALETTE.ember, [255, 208, 112]]; // ciclo de color a lo largo del hilo
+  // Paletas. main: experiencia y el hilo · spark: formación y la electricidad (rayos, sinapsis, impulsos)
+  // alt: proyectos · next: la PR · mid: tono intermedio del hilo y de la niebla
+  const PALETTES = {
+    fuego: { label: "Fuego y hielo", main: [255, 163, 26], spark: [150, 214, 255], alt: [255, 84, 46], next: [61, 255, 162], mid: [255, 208, 112] },
+    ambar: { label: "Ámbar puro", main: [255, 163, 26], spark: [255, 234, 186], alt: [214, 92, 34], next: [61, 255, 162], mid: [255, 198, 92] },
+    violeta: { label: "Ámbar y violeta", main: [255, 163, 26], spark: [178, 146, 255], alt: [255, 92, 72], next: [61, 255, 162], mid: [255, 206, 120] },
+    bio: { label: "Bioluminiscente", main: [52, 232, 158], spark: [206, 255, 128], alt: [255, 163, 26], next: [140, 210, 255], mid: [130, 255, 196] },
+  };
+  const PALETTE_NAME = new URLSearchParams(location.search).get("paleta");
+  const PALETTE = PALETTES[PALETTE_NAME] || PALETTES.fuego;
+  const KIND_COLOR = { work: "main", edu: "spark", proj: "alt", next: "next" };
+  const FLOW = [PALETTE.main, PALETTE.mid, PALETTE.alt, PALETTE.mid]; // ciclo de color a lo largo del hilo
   const rgb = ([r, g, b]) => `rgb(${r}, ${g}, ${b})`;
+  // el CSS (tarjetas, leyenda, niebla) toma los mismos colores
+  if (section) {
+    ["main", "spark", "alt", "next", "mid"].forEach((k) => section.style.setProperty(`--tl-${k}`, rgb(PALETTE[k])));
+    section.style.setProperty("--neb", rgb(PALETTE.main));
+  }
+  // Solo en local: botones para comparar paletas (en la web publicada no aparecen)
+  if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+    const bar = document.createElement("div");
+    bar.style.cssText = "position:fixed;left:12px;bottom:12px;z-index:9999;display:flex;flex-wrap:wrap;gap:6px;font:12px/1 'JetBrains Mono',monospace";
+    Object.entries(PALETTES).forEach(([name, p]) => {
+      const b = document.createElement("button");
+      const on = p === PALETTE;
+      b.style.cssText = `display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:6px;cursor:pointer;color:#eee;background:${on ? "#2a2a2e" : "#141417"};border:1px solid ${on ? "#fff" : "#333"}`;
+      b.innerHTML = ["main", "spark", "alt"].map((k) => `<i style="width:10px;height:10px;border-radius:50%;background:${rgb(p[k])}"></i>`).join("") + p.label;
+      b.addEventListener("click", () => {
+        const url = new URL(location.href);
+        url.searchParams.set("paleta", name);
+        location.href = url;
+      });
+      bar.append(b);
+    });
+    document.body.append(bar);
+  }
   // 64 tonos precalculados del ciclo: así no se construyen strings de color en cada trazo
   const FLOW_STEPS = 64;
   const flowColors = Array.from({ length: FLOW_STEPS }, (_, k) => {
@@ -1126,7 +1157,7 @@ function initTimeline() {
       const c = offsetIn(cards[i]);
       const x = o.x + n.offsetWidth / 2;
       const left = c.x + cards[i].offsetWidth / 2 < x; // tarjeta a la izquierda del nodo
-      const color = PALETTE[KIND_COLOR[checkpoints[i].dataset.kind] || "cyan"];
+      const color = PALETTE[KIND_COLOR[checkpoints[i].dataset.kind] || "main"];
       return { x, y: o.y + n.offsetHeight / 2, edge: left ? c.x + cards[i].offsetWidth : c.x, left, color };
     });
 
@@ -1200,7 +1231,7 @@ function initTimeline() {
     x.fillRect(0, 0, 64, 64);
     return c;
   };
-  const COLORS = [PALETTE.amber, PALETTE.ice, PALETTE.ember, PALETTE.mint];
+  const COLORS = [PALETTE.main, PALETTE.spark, PALETTE.alt, PALETTE.next];
   const SPRITES = COLORS.map(makeSprite);
   const spriteOf = (color) => SPRITES[COLORS.indexOf(color)] || SPRITES[0];
   // ámbar la mitad de las veces, brasa y algo de hielo
@@ -1362,7 +1393,7 @@ function initTimeline() {
     const tc = tex.getContext("2d");
     const img = tc.createImageData(tw, th);
     const out = img.data;
-    const [ar, ag, ab] = PALETTE.amber, [er, eg, eb] = PALETTE.ember;
+    const [ar, ag, ab] = PALETTE.main, [er, eg, eb] = PALETTE.alt;
     for (let y = 0; y < th; y++) {
       const v = ((y / s - m) / Hb) * 2 - 1;
       for (let x = 0; x < tw; x++) {
@@ -1409,7 +1440,7 @@ function initTimeline() {
     // contornos y las dos cisuras grandes, a trazo
     tc.globalCompositeOperation = "lighter";
     tc.lineCap = tc.lineJoin = "round";
-    tc.strokeStyle = rgb(PALETTE.amber);
+    tc.strokeStyle = rgb(PALETTE.main);
     for (const [poly, a] of [[cere, 0.75], [cbl, 0.55]]) {
       path(tc, poly);
       tc.globalAlpha = 0.12; tc.lineWidth = 7 * s; tc.stroke();
@@ -1663,7 +1694,7 @@ function initTimeline() {
   };
 
   // Rayo quebrado por desplazamiento del punto medio: se genera una vez y se desvanece (sin PAD)
-  const bolt = (x1, y1, x2, y2, ttl = 20, width = 1.6, color = PALETTE.ice) => {
+  const bolt = (x1, y1, x2, y2, ttl = 20, width = 1.6, color = PALETTE.spark) => {
     let pts = [[x1, y1 + PAD], [x2, y2 + PAD]];
     let off = Math.hypot(x2 - x1, y2 - y1) * 0.25;
     for (let k = 0; k < 4; k++) {
@@ -1752,7 +1783,7 @@ function initTimeline() {
     checkpoints.forEach((c, i) => c.classList.contains("is-active") && (last = i));
     // (la niebla siempre cálida: las etapas frías la tiñen de oro)
     const c = points[last].color;
-    const neb = rgb(c === PALETTE.ice || c === PALETTE.mint ? [255, 196, 96] : c);
+    const neb = rgb(c === PALETTE.spark || c === PALETTE.next ? PALETTE.mid : c);
     if (section && section.style.getPropertyValue("--neb") !== neb) section.style.setProperty("--neb", neb);
   };
 
@@ -1936,7 +1967,7 @@ function initTimeline() {
     ctx.globalAlpha = 0.7; ctx.lineWidth = 1.1;
     ctx.strokeStyle = flowGradient(0.25);
     tracePath(0, end, mobile ? 5 : 11, 0); ctx.stroke();
-    ctx.strokeStyle = rgb(PALETTE.ice); // una hebra fría enrollada al fuego
+    ctx.strokeStyle = rgb(PALETTE.spark); // una hebra fría enrollada al fuego
     tracePath(0, end, mobile ? 5 : 11, 1); ctx.stroke();
 
     // pulsos: cometas de color que recorren el tramo cargado
@@ -1997,7 +2028,7 @@ function initTimeline() {
       ctx.drawImage(T.tex, ix, iy, iw, ih);
       ctx.drawImage(T.tex, ix, iy, iw, ih);
       ctx.restore();
-      ctx.fillStyle = rgb(PALETTE.ice);
+      ctx.fillStyle = rgb(PALETTE.spark);
       ctx.globalAlpha = 0.55;
       ctx.fillRect(beam - 0.75, box.y0, 1.5, box.y1 - box.y0);
       glow(SPRITES[1], beam, box.y0, 30, 0.9);
@@ -2006,7 +2037,7 @@ function initTimeline() {
     // marco del escáner: esquinas y un par de lecturas
     if (hud > 0.01) {
       const L = mobile ? 10 : 18;
-      ctx.strokeStyle = rgb(PALETTE.ice);
+      ctx.strokeStyle = rgb(PALETTE.spark);
       ctx.globalAlpha = hud * 0.55;
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -2015,7 +2046,7 @@ function initTimeline() {
       }
       ctx.stroke();
       if (!mobile) {
-        ctx.fillStyle = rgb(PALETTE.ice);
+        ctx.fillStyle = rgb(PALETTE.spark);
         ctx.globalAlpha = hud * 0.5;
         ctx.font = '10px "JetBrains Mono", ui-monospace, monospace';
         ctx.textAlign = "left";
