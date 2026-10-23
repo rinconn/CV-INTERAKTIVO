@@ -795,6 +795,12 @@ ul {
   font-weight: 500;
 }
 
+/* Última sección: al menos una pantalla de alto, para que los enlaces a #contacto la dejen arriba
+   del todo (si es más corta, el scroll se queda antes y se ve el final de Trayectoria) */
+#contacto {
+  min-height: calc(100svh - var(--nav-h));
+}
+
 .placeholder {
   color: var(--text-muted);
 }
