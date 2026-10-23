@@ -35,6 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initSkillsNetwork();
   initTimeline();
   initContact();
+  initCommandPalette();
   initNameGlitch();
 
   if (animate) {
@@ -3351,4 +3352,165 @@ function initContact() {
     },
     { threshold: [0, 0.3] }
   ).observe(stage);
+}
+
+/* ---------- Paleta de comandos (Ctrl/⌘ + K): saltar a una sección, copiar el email, abrir redes… ---------- */
+// Un <dialog> nativo (foco atrapado y Esc gratis). El filtro ignora tildes y mayúsculas y acepta letras
+// salteadas ("pyt" encuentra "Proyectos"); hay un comando oculto que solo sale si lo escribes.
+function initCommandPalette() {
+  const dialog = document.getElementById("cmdk");
+  if (!dialog || typeof dialog.showModal !== "function") return;
+  const input = dialog.querySelector(".cmdk__input");
+  const list = dialog.querySelector(".cmdk__list");
+  const empty = dialog.querySelector(".cmdk__empty");
+  const toast = document.querySelector(".cmdk-toast");
+  const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+  document.querySelectorAll("[data-cmdk-mod]").forEach((k) => (k.textContent = isMac ? "⌘" : "Ctrl"));
+
+  const EMAIL = "rincon.enriquemv@gmail.com";
+  const brand = (label) => document.querySelector(`.social-rail a[aria-label="${label}"] path`)?.getAttribute("d") || "";
+  const link = (label) => document.querySelector(`.social-rail a[aria-label="${label}"]`)?.href;
+  const ICONS = {
+    home: '<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',
+    skills: '<path d="M12 2l9 5-9 5-9-5 9-5z"/><path d="M3 12l9 5 9-5"/><path d="M3 17l9 5 9-5"/>',
+    projects: '<path d="M3 7h6l2 2h10v10H3z"/>',
+    path: '<circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="12" r="2"/><path d="M6 7v10M8 18c6 0 8-2 8-4"/>',
+    signal: '<path d="M12 12v.01"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/>',
+    copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>',
+    mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+    card: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M6 16c.6-1.5 1.8-2 3-2s2.4.5 3 2M15 10h3M15 13h3"/>',
+    terminal: '<path d="M4 17l6-5-6-5M12 19h8"/>',
+  };
+  const svg = (name) => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
+  const svgBrand = (label) => `<svg class="is-brand" viewBox="0 0 24 24" aria-hidden="true"><path d="${brand(label)}"/></svg>`;
+
+  const say = (text) => {
+    toast.textContent = text;
+    toast.classList.add("is-on");
+    clearTimeout(say.t);
+    say.t = setTimeout(() => toast.classList.remove("is-on"), 2200);
+  };
+  const go = (sel) => {
+    const el = document.querySelector(sel);
+    if (!el) return;
+    if (lenis) lenis.scrollTo(el);
+    else el.scrollIntoView({ behavior: prefersReducedMotion ? "auto" : "smooth" });
+  };
+
+  const COMMANDS = [
+    { group: "Ir a", label: "Inicio", icon: svg("home"), keys: "home hero arriba principio", run: () => go("#hero") },
+    { group: "Ir a", label: "Skills", icon: svg("skills"), keys: "tecnologias stack habilidades", run: () => go("#skills") },
+    { group: "Ir a", label: "Proyectos", icon: svg("projects"), keys: "trabajos portfolio scriptbay tsender", run: () => go("#proyectos") },
+    { group: "Ir a", label: "Trayectoria", icon: svg("path"), keys: "experiencia formacion cv historia", run: () => go("#trayectoria") },
+    { group: "Ir a", label: "Contacto", icon: svg("signal"), keys: "hablar murcielago", run: () => go("#contacto") },
+    { group: "Contacto", label: "Copiar email", icon: svg("copy"), hint: EMAIL, keys: "correo mail portapapeles",
+      run: async () => {
+        try { await navigator.clipboard.writeText(EMAIL); say("> email copiado al portapapeles"); }
+        catch { say(`> ${EMAIL}`); }
+      } },
+    { group: "Contacto", label: "Escribir un email", icon: svg("mail"), hint: "↗", keys: "correo mail mandar enviar", run: () => (location.href = `mailto:${EMAIL}`) },
+    { group: "Contacto", label: "Guardar contacto (.vcf)", icon: svg("card"), keys: "vcard agenda descargar telefono", run: () => {
+      go("#contacto");
+      setTimeout(() => document.querySelector("[data-vcard]")?.click(), 1100); // que se vea cómo carga y revienta
+    } },
+    { group: "Redes", label: "GitHub", icon: svgBrand("GitHub"), hint: "↗", keys: "codigo repos git", run: () => window.open(link("GitHub"), "_blank", "noopener") },
+    { group: "Redes", label: "LinkedIn", icon: svgBrand("LinkedIn"), hint: "↗", keys: "red perfil trabajo", run: () => window.open(link("LinkedIn"), "_blank", "noopener") },
+    // oculto: solo aparece si lo buscas
+    { group: "Terminal", label: "sudo contratar --enrique", icon: svg("terminal"), hidden: true, keys: "sudo contratar fichar hire merge",
+      run: () => {
+        go(".checkpoint--next");
+        say("> permiso concedido · falta tu revisión en la PR_07");
+      } },
+  ];
+
+  // sin tildes ni mayúsculas
+  const norm = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  // 3: empieza igual · 2: contiene · 1: letras en orden (salteadas) · 0: nada
+  const score = (cmd, q) => {
+    if (!q) return cmd.hidden ? 0 : 1;
+    const label = norm(cmd.label), all = `${label} ${norm(cmd.keys || "")}`;
+    if (label.startsWith(q)) return 3;
+    if (all.includes(q)) return 2;
+    if (cmd.hidden) return 0;
+    let i = 0;
+    for (const ch of label) if (ch === q[i]) i++;
+    return i === q.length ? 1 : 0;
+  };
+  const mark = (label, q) => {
+    const k = q ? norm(label).indexOf(q) : -1;
+    return k < 0 ? label : `${label.slice(0, k)}<mark>${label.slice(k, k + q.length)}</mark>${label.slice(k + q.length)}`;
+  };
+
+  let shown = [], active = 0;
+  const render = () => {
+    const q = norm(input.value.trim());
+    shown = COMMANDS.map((c, i) => ({ c, s: score(c, q), i }))
+      .filter((r) => r.s > 0)
+      .sort((a, b) => (q ? b.s - a.s : 0) || a.i - b.i)
+      .map((r) => r.c);
+    active = Math.min(active, Math.max(0, shown.length - 1));
+    let html = "", group = "";
+    shown.forEach((c, i) => {
+      // sin búsqueda se agrupan; buscando, la lista va por relevancia
+      if (!q && c.group !== group) html += `<li class="cmdk__group" role="presentation">${(group = c.group)}</li>`;
+      html += `<li class="cmdk__item" id="cmdk-${i}" role="option" data-i="${i}" aria-selected="${i === active}">
+        ${c.icon}<span class="cmdk__label">${mark(c.label, q)}</span>${c.hint ? `<span class="cmdk__hint">${c.hint}</span>` : ""}</li>`;
+    });
+    list.innerHTML = html;
+    empty.hidden = shown.length > 0;
+    input.setAttribute("aria-activedescendant", shown.length ? `cmdk-${active}` : "");
+  };
+  const select = (i) => {
+    if (!shown.length) return;
+    active = (i + shown.length) % shown.length;
+    list.querySelectorAll(".cmdk__item").forEach((el) => el.setAttribute("aria-selected", el.dataset.i == active));
+    list.querySelector(`#cmdk-${active}`)?.scrollIntoView({ block: "nearest" });
+    input.setAttribute("aria-activedescendant", `cmdk-${active}`);
+  };
+  const run = (i) => {
+    const cmd = shown[i];
+    if (!cmd) return;
+    close();
+    cmd.run();
+  };
+
+  const open = () => {
+    if (dialog.open) return;
+    input.value = "";
+    active = 0;
+    render();
+    lenis?.stop();
+    dialog.showModal();
+    input.focus();
+  };
+  // el evento "close" llega después: Lenis se reactiva ya, o el comando no podría desplazar la página
+  const close = () => {
+    if (dialog.open) dialog.close();
+    lenis?.start();
+  };
+  dialog.addEventListener("close", () => lenis?.start()); // al cerrar con Esc
+
+  document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      dialog.open ? close() : open();
+    }
+  });
+  document.querySelectorAll("[data-cmdk-open]").forEach((b) => b.addEventListener("click", open));
+  input.addEventListener("input", () => { active = 0; render(); });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown") { e.preventDefault(); select(active + 1); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); select(active - 1); }
+    else if (e.key === "Enter") { e.preventDefault(); run(active); }
+  });
+  list.addEventListener("pointermove", (e) => {
+    const item = e.target.closest(".cmdk__item");
+    if (item && +item.dataset.i !== active) select(+item.dataset.i);
+  });
+  list.addEventListener("click", (e) => {
+    const item = e.target.closest(".cmdk__item");
+    if (item) run(+item.dataset.i);
+  });
+  // clic fuera de la caja (en el fondo) cierra
+  dialog.addEventListener("click", (e) => e.target === dialog && close());
 }

@@ -28,13 +28,13 @@
   <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&display=swap" media="print" onload="this.media='all'" />
   <noscript><link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&display=swap" /></noscript>
 
-  <link rel="stylesheet" href="css/styles.css?v=50" />
+  <link rel="stylesheet" href="css/styles.css?v=52" />
 
   <!-- defer: se descargan en paralelo con el CSS y se ejecutan en orden al terminar de leer el HTML -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
-  <script defer src="js/main.js?v=51"></script>
+  <script defer src="js/main.js?v=53"></script>
 </head>
 
 <body>
@@ -52,6 +52,9 @@
         <a href="#skills" class="nav__link">Skills</a>
         <a href="#proyectos" class="nav__link">Proyectos</a>
         <a href="#trayectoria" class="nav__link">Trayectoria</a>
+        <button class="nav__cmdk" type="button" data-cmdk-open aria-label="Abrir paleta de comandos" aria-keyshortcuts="Control+K Meta+K">
+          <kbd data-cmdk-mod>Ctrl</kbd><kbd>K</kbd>
+        </button>
 
         <div class="nav__social social-list"></div>
       </nav>
@@ -509,6 +512,26 @@
       <p class="contact__toast" role="status" aria-live="polite"></p>
     </section>
   </main>
+
+  <!-- Paleta de comandos (Ctrl/⌘ + K): saltar a una sección, copiar el email, abrir redes… -->
+  <dialog class="cmdk" id="cmdk" aria-label="Paleta de comandos">
+    <div class="cmdk__box">
+      <label class="cmdk__search">
+        <span class="cmdk__prompt" aria-hidden="true">&gt;</span>
+        <input class="cmdk__input" type="text" placeholder="¿Qué buscas? Prueba «email» o «proyectos»" autocomplete="off"
+          spellcheck="false" role="combobox" aria-expanded="true" aria-controls="cmdkList" aria-autocomplete="list" />
+        <kbd class="cmdk__esc">esc</kbd>
+      </label>
+      <ul class="cmdk__list" id="cmdkList" role="listbox" aria-label="Comandos"></ul>
+      <p class="cmdk__empty" hidden>Nada por aquí. Prueba con otra palabra.</p>
+      <footer class="cmdk__foot" aria-hidden="true">
+        <span><kbd>↑</kbd><kbd>↓</kbd> moverse</span>
+        <span><kbd>↵</kbd> abrir</span>
+        <span><kbd>esc</kbd> cerrar</span>
+      </footer>
+    </div>
+  </dialog>
+  <p class="cmdk-toast" role="status" aria-live="polite"></p>
 
   <footer class="footer">
     <p>© <span id="year"></span> Enrique Rincón</p>
