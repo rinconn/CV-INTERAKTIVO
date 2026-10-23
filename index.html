@@ -23,7 +23,7 @@
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.css" />
 
-  <link rel="stylesheet" href="css/styles.css?v=38" />
+  <link rel="stylesheet" href="css/styles.css?v=41" />
 </head>
 
 <body>
@@ -437,68 +437,41 @@
     <section class="section" id="contacto">
       <div class="container">
         <h2 class="section__title reveal"><span class="section__num">04.</span> Contacto</h2>
-
-        <div class="contact">
-          <div class="contact__intro reveal">
-            <p class="contact__kicker">&gt; nueva conexión entrante…</p>
-            <h3 class="contact__title">¿Hablamos?</h3>
-            <p class="contact__text">
-              Si tienes un proyecto, una vacante o simplemente una idea rara que quieras construir, aquí tienes mi tarjeta.
-              Dale la vuelta y quédatela.
-            </p>
-            <div class="contact__actions">
-              <a class="btn btn--primary" href="mailto:rincon.enriquemv@gmail.com">Escríbeme</a>
-              <button class="btn btn--ghost" type="button" data-vcard>Guardar contacto</button>
-            </div>
-          </div>
-
-          <!-- Tarjeta de visita: se inclina con el ratón y se da la vuelta al pulsarla -->
-          <div class="bizcard" id="bizcard">
-            <div class="bizcard__inner">
-              <div class="bizcard__face bizcard__face--front">
-                <span class="bizcard__foil" aria-hidden="true"></span>
-                <div class="bizcard__top">
-                  <img class="bizcard__logo" src="assets/avatar-bat.webp" alt="" width="56" height="56" decoding="async" />
-                  <span class="bizcard__chip" aria-hidden="true"></span>
-                </div>
-                <div class="bizcard__id">
-                  <p class="bizcard__name">Enrique Rincón</p>
-                  <p class="bizcard__role">Full Stack Developer</p>
-                </div>
-                <div class="bizcard__bottom">
-                  <span class="bizcard__code" aria-hidden="true">&lt;front /&gt; · {back} · [db]</span>
-                  <span class="bizcard__hint" aria-hidden="true">↻ dale la vuelta</span>
-                </div>
-              </div>
-
-              <div class="bizcard__face bizcard__face--back">
-                <span class="bizcard__foil" aria-hidden="true"></span>
-                <p class="bizcard__label">// contacto</p>
-                <ul class="bizcard__list">
-                  <li>
-                    <span class="bizcard__key">email</span>
-                    <a href="mailto:rincon.enriquemv@gmail.com">rincon.enriquemv@gmail.com</a>
-                    <button class="bizcard__copy" type="button" data-copy="rincon.enriquemv@gmail.com"
-                      aria-label="Copiar email">copiar</button>
-                  </li>
-                  <li>
-                    <span class="bizcard__key">linkedin</span>
-                    <a href="https://www.linkedin.com/in/enrique-rincón-mateeva-264845363" target="_blank"
-                      rel="noopener">enrique-rincón-mateeva</a>
-                  </li>
-                  <li>
-                    <span class="bizcard__key">github</span>
-                    <a href="https://github.com/rinconn" target="_blank" rel="noopener">github.com/rinconn</a>
-                  </li>
-                </ul>
-                <p class="bizcard__status"><span class="dot" aria-hidden="true"></span> <span data-status>Disponible para nuevos proyectos</span></p>
-              </div>
-            </div>
-            <button class="bizcard__flip" type="button" aria-pressed="false">Dar la vuelta a la tarjeta</button>
-          </div>
-        </div>
-        <p class="contact__toast" role="status" aria-live="polite"></p>
       </div>
+
+      <!-- Un murciélago de chispas que ecolocaliza: su onda "encuentra" los enlaces (canvas en initContact) -->
+      <div class="echo" id="echo">
+        <canvas class="echo__canvas" aria-hidden="true"></canvas>
+        <p class="echo__status" aria-hidden="true">&gt; en reposo…</p>
+        <div class="echo__bat" aria-hidden="true"></div>
+        <h3 class="echo__title">No hace falta que grites,<br /><span>te encuentro por el eco.</span></h3>
+
+        <ul class="echo__targets">
+          <li class="echo__target" data-echo="email">
+            <a class="echo__link" href="mailto:rincon.enriquemv@gmail.com">
+              <span class="echo__label">Email</span>
+              <span class="echo__value">rincon.enriquemv@gmail.com</span>
+            </a>
+            <button class="echo__copy" type="button" data-copy="rincon.enriquemv@gmail.com">copiar</button>
+          </li>
+          <li class="echo__target" data-echo="linkedin">
+            <a class="echo__link" href="https://www.linkedin.com/in/enrique-rincón-mateeva-264845363" target="_blank"
+              rel="noopener">
+              <span class="echo__label">LinkedIn</span>
+              <span class="echo__value">in/enrique-rincón-mateeva ↗</span>
+            </a>
+          </li>
+          <li class="echo__target" data-echo="github">
+            <a class="echo__link" href="https://github.com/rinconn" target="_blank" rel="noopener">
+              <span class="echo__label">GitHub</span>
+              <span class="echo__value">github.com/rinconn ↗</span>
+            </a>
+          </li>
+        </ul>
+
+        <button class="echo__vcard" type="button" data-vcard>guardar contacto (.vcf) ↓</button>
+      </div>
+      <p class="contact__toast" role="status" aria-live="polite"></p>
     </section>
   </main>
 
@@ -509,7 +482,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
-  <script src="js/main.js?v=38"></script>
+  <script src="js/main.js?v=41"></script>
 </body>
 
 </html>
