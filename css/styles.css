@@ -1788,15 +1788,15 @@ ul {
 /* =========================================================
    TRAYECTORIA: un hilo de energía neón que baja haciendo bucles
    El hilo, sus pulsos, órbitas, rayos y chispas se pintan en canvas (.timeline__fx);
-   aquí van los nodos y las tarjetas. Paleta propia: cian, rosa y rojo
+   aquí van los nodos y las tarjetas. Paleta: ámbar (experiencia), hielo (formación) y brasa (proyectos)
    ========================================================= */
 .timeline,
 .timeline-legend {
-  --tl-cyan: #22e1ff;
-  --tl-pink: #ff3ea5;
-  --tl-red: #ff3355;
-  --tl-violet: #9b5cff;
-  --tl-neon: linear-gradient(90deg, var(--tl-cyan), var(--tl-pink), var(--tl-red));
+  --tl-amber: #ffa31a;
+  --tl-ice: #96d6ff;
+  --tl-ember: #ff542e;
+  --tl-mint: #3dffa2;
+  --tl-neon: linear-gradient(90deg, var(--tl-amber), var(--tl-ice), var(--tl-ember));
 }
 
 /* Leyenda: cada tipo con la forma (y el color) de su nodo */
@@ -1819,21 +1819,21 @@ ul {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--tl-cyan);
-  filter: drop-shadow(0 0 5px var(--tl-cyan));
+  background: var(--tl-amber);
+  filter: drop-shadow(0 0 5px var(--tl-amber));
 }
 
 .timeline-legend [data-kind="edu"] i {
   border-radius: 2px;
   transform: rotate(45deg) scale(0.9);
-  background: var(--tl-pink);
-  filter: drop-shadow(0 0 5px var(--tl-pink));
+  background: var(--tl-ice);
+  filter: drop-shadow(0 0 5px var(--tl-ice));
 }
 
 .timeline-legend [data-kind="proj"] i {
   border-radius: 0;
   clip-path: polygon(25% 4%, 75% 4%, 100% 50%, 75% 96%, 25% 96%, 0 50%);
-  background: var(--tl-red);
+  background: var(--tl-ember);
 }
 
 /* --x: dónde va el eje del hilo. JS deja en --track-top / --track-h el tramo entre el primer y el último nodo */
@@ -1867,8 +1867,8 @@ ul {
 .timeline__fill {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, var(--tl-cyan), var(--tl-pink), var(--tl-red));
-  box-shadow: 0 0 12px color-mix(in srgb, var(--tl-pink) 50%, transparent);
+  background: linear-gradient(180deg, var(--tl-amber), var(--tl-ice), var(--tl-ember));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--tl-ice) 50%, transparent);
 }
 
 .timeline.is-static .timeline__track {
@@ -1881,7 +1881,7 @@ ul {
 }
 
 .checkpoint {
-  --c: var(--tl-cyan);
+  --c: var(--tl-amber);
   position: relative;
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1889,15 +1889,15 @@ ul {
 }
 
 .checkpoint[data-kind="edu"] {
-  --c: var(--tl-pink);
+  --c: var(--tl-ice);
 }
 
 .checkpoint[data-kind="proj"] {
-  --c: var(--tl-red);
+  --c: var(--tl-ember);
 }
 
 .checkpoint[data-kind="next"] {
-  --c: var(--tl-violet);
+  --c: var(--tl-mint);
 }
 
 .checkpoint + .checkpoint {
@@ -2155,8 +2155,8 @@ ul {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--tl-red);
-  box-shadow: 0 0 8px var(--tl-red);
+  background: var(--tl-ember);
+  box-shadow: 0 0 8px var(--tl-ember);
   animation: live-blink 1.1s steps(1) infinite;
 }
 
@@ -2174,18 +2174,18 @@ ul {
   letter-spacing: 0.005em;
 }
 
-/* Al pasar el ratón el título "se descuadra" en cian y rosa (aberración cromática) */
+/* Al pasar el ratón el título "se descuadra" en ámbar y hielo (aberración cromática) */
 .checkpoint__card:hover .checkpoint__title {
   animation: title-rgb 0.9s steps(2) infinite;
 }
 
 @keyframes title-rgb {
   0% {
-    text-shadow: -2px 0 var(--tl-cyan), 2px 0 var(--tl-pink);
+    text-shadow: -2px 0 var(--tl-amber), 2px 0 var(--tl-ice);
   }
 
   50% {
-    text-shadow: 2px 1px var(--tl-cyan), -2px -1px var(--tl-pink);
+    text-shadow: 2px 1px var(--tl-amber), -2px -1px var(--tl-ice);
   }
 }
 
@@ -2406,11 +2406,11 @@ ul {
 @property --neb {
   syntax: "<color>";
   inherits: true;
-  initial-value: #22e1ff;
+  initial-value: #ffa31a;
 }
 
 #trayectoria {
-  --neb: #22e1ff;
+  --neb: #ffa31a;
   position: relative;
   isolation: isolate;
   transition: --neb 1.6s ease;
@@ -2444,7 +2444,7 @@ ul {
 .nebula span:nth-child(2) {
   top: 28%;
   right: -22%;
-  background: radial-gradient(closest-side, rgba(255, 62, 165, 0.13), rgba(255, 62, 165, 0.04) 55%, transparent);
+  background: radial-gradient(closest-side, rgba(255, 84, 46, 0.12), rgba(255, 84, 46, 0.035) 55%, transparent);
   animation-duration: 41s;
   animation-delay: -12s;
 }
@@ -2452,7 +2452,7 @@ ul {
 .nebula span:nth-child(3) {
   top: 55%;
   left: -10%;
-  background: radial-gradient(closest-side, rgba(255, 51, 85, 0.1), rgba(255, 51, 85, 0.03) 55%, transparent);
+  background: radial-gradient(closest-side, rgba(255, 196, 96, 0.1), rgba(255, 196, 96, 0.03) 55%, transparent);
   animation-duration: 47s;
   animation-delay: -20s;
 }
@@ -2513,7 +2513,7 @@ ul {
 
 .timeline__boot b {
   font-weight: 600;
-  color: var(--tl-cyan);
+  color: var(--tl-amber);
 }
 
 .timeline.is-static {
@@ -2528,7 +2528,7 @@ ul {
 
 @media (max-width: 760px) {
   .timeline {
-    padding-top: 220px;
+    padding-top: 300px;
   }
 
   .timeline__boot {
