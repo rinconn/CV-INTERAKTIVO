@@ -46,6 +46,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initContact();
   initCommandPalette();
   initTerminal();
+  initBatBuddy();
   initNameGlitch();
 
   if (animate) {
@@ -3809,4 +3810,154 @@ function initTerminal() {
     e.preventDefault();
     open();
   });
+}
+
+/* ---------- El murciélago acompañante: te sigue por la web y ecolocaliza cada sección ---------- */
+// Aparece al dejar el hero y se cuelga del borde derecho. Cuando entra el título de una sección vuela hasta él
+// en arco, se posa, lanza una onda (el título se enciende) y vuelve. En Contacto se funde con el murciélago
+// grande. Si le haces clic, abre la terminal. Solo transform y opacity: no cuesta casi nada.
+function initBatBuddy() {
+  if (!animate) return;
+  const bat = document.createElement("button");
+  bat.type = "button";
+  bat.className = "buddy";
+  bat.setAttribute("aria-label", "Murciélago: abre la terminal");
+  bat.title = "psst… (o pulsa º)";
+  bat.innerHTML = `<svg viewBox="0 0 64 36" aria-hidden="true">
+      <path class="buddy__wing buddy__wing--l" d="M30 14 C22 4 10 2 1 8 C6 10 8 14 7 19 C11 16 15 17 17 21 C20 17 25 17 28 20 Z" />
+      <path class="buddy__wing buddy__wing--r" d="M34 14 C42 4 54 2 63 8 C58 10 56 14 57 19 C53 16 49 17 47 21 C44 17 39 17 36 20 Z" />
+      <path class="buddy__body" d="M27 9 L28.5 3 L31 8 H33 L35.5 3 L37 9 C40 12 40 20 36 25 C34 28 30 28 28 25 C24 20 24 12 27 9 Z" />
+      <circle class="buddy__eye" cx="29.6" cy="13" r="1.3" /><circle class="buddy__eye" cx="34.4" cy="13" r="1.3" />
+    </svg>`;
+  document.body.append(bat);
+  bat.addEventListener("click", () => window.dispatchEvent(new Event("term:open")));
+
+  const small = () => window.innerWidth <= 760;
+  const pos = { x: window.innerWidth + 60, y: window.innerHeight * 0.42 };
+  const place = (rot = 0) => gsap.set(bat, { x: pos.x, y: pos.y, rotation: rot });
+  const rest = () => ({ x: window.innerWidth - (small() ? 46 : 64), y: small() ? window.innerHeight - 120 : window.innerHeight * 0.42 });
+  place();
+
+  let state = "away"; // away | resting | busy | merged
+  let flight = null;
+  // vuelo en arco hacia un objetivo que puede moverse (el título sigue desplazándose con el scroll)
+  const fly = (target, duration = 1.1, lift = 70) => new Promise((done) => {
+    flight?.kill();
+    const from = { ...pos }, o = { t: 0 };
+    bat.classList.add("is-flying");
+    flight = gsap.to(o, {
+      t: 1,
+      duration,
+      ease: "power2.inOut",
+      onUpdate: () => {
+        const to = target(), t = o.t;
+        pos.x = from.x + (to.x - from.x) * t;
+        pos.y = from.y + (to.y - from.y) * t - Math.sin(Math.PI * t) * lift;
+        place(Math.sin(Math.PI * t) * (to.x < from.x ? -14 : 14));
+      },
+      onComplete: () => {
+        bat.classList.remove("is-flying");
+        done();
+      },
+    });
+  });
+  // posado: sigue al objetivo un rato (el título no está quieto)
+  const hold = (target, ms) => new Promise((done) => {
+    const follow = () => {
+      const to = target();
+      pos.x += (to.x - pos.x) * 0.35;
+      pos.y += (to.y - pos.y) * 0.35;
+      place();
+    };
+    gsap.ticker.add(follow);
+    setTimeout(() => { gsap.ticker.remove(follow); done(); }, ms);
+  });
+  const ping = () => {
+    const ring = document.createElement("span");
+    ring.className = "buddy__ring";
+    bat.append(ring);
+    ring.addEventListener("animationend", () => ring.remove());
+  };
+  // si llega un título mientras vuela (o antes de entrar en escena), se apunta y lo visita al acabar
+  let pending = null;
+  const next = () => {
+    const t = pending;
+    pending = null;
+    if (!t) return;
+    const r = t.getBoundingClientRect();
+    if (r.bottom > 0 && r.top < window.innerHeight) (t.closest("#contacto") ? merge() : visit(t));
+  };
+  const goRest = async () => {
+    state = "busy";
+    await fly(rest, 1.2, 50);
+    state = "resting";
+    next();
+  };
+
+  // visita a un título: vuela encima del número, onda, el título brilla y vuelta a su sitio
+  const lastVisit = new Map();
+  const visit = async (title) => {
+    if (state === "merged") return;
+    if (state !== "resting") { pending = title; return; }
+    if (performance.now() - (lastVisit.get(title) || -1e9) < 20000) return; // no repetir enseguida
+    lastVisit.set(title, performance.now());
+    state = "busy";
+    const perch = () => {
+      const r = title.getBoundingClientRect();
+      return { x: r.left - 4, y: r.top - (small() ? 30 : 38) };
+    };
+    await fly(perch, 1.05);
+    ping();
+    title.classList.remove("is-echoed");
+    void title.offsetWidth;
+    title.classList.add("is-echoed");
+    await hold(perch, 1300);
+    await goRest();
+  };
+
+  // en Contacto: se mete en el murciélago grande y desaparece; al salir, vuelve a su sitio
+  const echo = document.querySelector(".echo__bat");
+  const merge = async () => {
+    if (state === "merged" || !echo) return;
+    if (state !== "resting") { pending = document.querySelector("#contacto .section__title"); return; }
+    state = "busy";
+    const into = () => {
+      const r = echo.getBoundingClientRect();
+      return { x: r.left + r.width / 2 - 32, y: r.top + r.height * 0.42 - 18 };
+    };
+    await fly(into, 1.1, 40);
+    gsap.to(bat, { opacity: 0, scale: 0.4, duration: 0.35 });
+    state = "merged";
+  };
+  const unmerge = async () => {
+    if (state !== "merged") return;
+    gsap.to(bat, { opacity: 1, scale: 1, duration: 0.35 });
+    await goRest();
+  };
+
+  // entra en escena cuando del hero queda menos del 40 % a la vista, y se va si vuelves arriba del todo
+  const hero = document.getElementById("hero");
+  new IntersectionObserver(([e]) => {
+    if (e.intersectionRatio < 0.4 && state === "away") goRest();
+    else if (e.intersectionRatio > 0.7 && state === "resting") {
+      state = "busy";
+      fly(() => ({ x: window.innerWidth + 60, y: window.innerHeight * 0.3 }), 0.9, 40).then(() => (state = "away"));
+    }
+  }, { threshold: [0, 0.4, 0.7] }).observe(hero);
+
+  // los títulos de sección, cuando llegan a la parte alta de la pantalla
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      if (e.target.closest("#contacto")) merge();
+      else visit(e.target);
+    }
+  }, { rootMargin: "-15% 0px -45% 0px" });
+  document.querySelectorAll(".section__title").forEach((t) => io.observe(t));
+
+  // al salir de Contacto (hacia arriba) vuelve
+  const contact = document.getElementById("contacto");
+  if (contact) new IntersectionObserver(([e]) => !e.isIntersecting && unmerge()).observe(contact);
+
+  window.addEventListener("resize", () => state === "resting" && (Object.assign(pos, rest()), place()));
 }
