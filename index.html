@@ -28,13 +28,13 @@
   <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&display=swap" media="print" onload="this.media='all'" />
   <noscript><link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&display=swap" /></noscript>
 
-  <link rel="stylesheet" href="css/styles.css?v=59" />
+  <link rel="stylesheet" href="css/styles.css?v=60" />
 
   <!-- defer: se descargan en paralelo con el CSS y se ejecutan en orden al terminar de leer el HTML -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
-  <script defer src="js/main.js?v=66"></script>
+  <script defer src="js/main.js?v=68"></script>
 </head>
 
 <body>
@@ -112,6 +112,11 @@
             <span class="dot" aria-hidden="true"></span>
             <span class="hero__status-text">Disponible para nuevos proyectos</span>
           </p>
+
+          <button class="hero__quick" type="button" data-cvq-open>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z" /></svg>
+            ¿Tienes prisa? Mi CV en 30 s
+          </button>
         </div>
 
         <h1 class="hero__title hero__anim" data-split>
@@ -130,8 +135,8 @@
         </p>
 
         <div class="hero__actions hero__anim">
-          <a href="#proyectos" class="btn btn--primary">Ver proyectos</a>
-          <a href="#contacto" class="btn btn--primary">Contáctame</a>
+          <a href="#proyectos" class="btn btn--primary btn--magnet">Ver proyectos</a>
+          <a href="#contacto" class="btn btn--ghost btn--magnet">Contáctame <span class="btn__arrow" aria-hidden="true">→</span></a>
         </div>
 
         <button class="hero__term hero__anim" type="button" data-term-open aria-label="Abrir la terminal">
@@ -542,6 +547,17 @@
     </div>
   </dialog>
   <p class="cmdk-toast" role="status" aria-live="polite"></p>
+
+  <!-- Modo reclutador: el CV entero en una pantalla, listo para imprimir o guardar en PDF -->
+  <dialog class="cvq" id="cvq" aria-label="CV de Enrique Rincón en una pantalla">
+    <div class="cvq__bar">
+      <span class="cvq__tag">CV · vista rápida</span>
+      <button class="cvq__btn cvq__btn--copy" type="button" data-cvq-copy>Copiar email</button>
+      <button class="cvq__btn cvq__btn--main" type="button" data-cvq-print>Imprimir / PDF</button>
+      <button class="cvq__close" type="button" aria-label="Cerrar">×</button>
+    </div>
+    <div class="cvq__body"></div>
+  </dialog>
 
   <!-- Terminal (tecla º): el CV responde a comandos -->
   <dialog class="term" id="term" aria-label="Terminal">

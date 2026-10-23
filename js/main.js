@@ -46,6 +46,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initContact();
   initCommandPalette();
   initTerminal();
+  initRecruiter();
   initBatBuddy();
 
   if (animate) {
@@ -53,6 +54,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initHeroParallax();
     initScrollReveals();
     initProjectCards();
+    initHeroLife();
     document.fonts?.ready.then(() => ScrollTrigger.refresh());
   } else {
     initTyped({ delay: 900 });
@@ -355,7 +357,10 @@ function initHeroIntro() {
   // Al acabar la intro, la primera frase se escribe letra a letra
   const tl = gsap.timeline({
     defaults: { ease: "expo.out" },
-    onComplete: () => initTyped({ onFirstTyped: revealRest }),
+    onComplete: () => {
+      title.classList.add("is-alive"); // ya puede reaccionar al ratón (initHeroLife)
+      initTyped({ onFirstTyped: revealRest });
+    },
   });
 
   // clearProps: sin transform en el nav, el menú móvil (position: fixed) ocupa toda la pantalla
@@ -3463,6 +3468,7 @@ function initCommandPalette() {
       go("#contacto");
       setTimeout(() => document.querySelector("[data-qr] .echo__qr-trigger")?.click(), 1100); // ya en su sitio, se abre
     } },
+    { group: "Extras", label: "Vista rápida del CV", icon: svg("card"), hint: "30 s", keys: "reclutador resumen cv imprimir pdf", run: () => setTimeout(() => window.dispatchEvent(new Event("cvq:open")), 50) },
     { group: "Extras", label: "Abrir la terminal", icon: svg("terminal"), hint: "º", keys: "consola shell bash comandos", run: () => setTimeout(() => window.dispatchEvent(new Event("term:open")), 50) },
     { group: "Redes", label: "GitHub", icon: svgBrand("GitHub"), hint: "↗", keys: "codigo repos git", run: () => window.open(link("GitHub"), "_blank", "noopener") },
     { group: "Redes", label: "LinkedIn", icon: svgBrand("LinkedIn"), hint: "↗", keys: "red perfil trabajo", run: () => window.open(link("LinkedIn"), "_blank", "noopener") },
@@ -3577,26 +3583,12 @@ function initTerminal() {
   const form = term.querySelector(".term__form");
   const GH_USER = "rinconn";
   const EMAIL = "rincon.enriquemv@gmail.com";
-  const $$ = (sel) => [...document.querySelectorAll(sel)];
   const text = (el) => (el ? el.textContent.replace(/\s+/g, " ").trim() : "");
   const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   const norm = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
   // datos sacados de la página
-  const projects = () => $$(".project-card").map((c) => ({
-    name: text(c.querySelector(".project-card__title")),
-    meta: text(c.querySelector(".project-card__meta")),
-    desc: text(c.querySelector(".project-card__desc")),
-    url: c.querySelector('.project-card__links a[href^="http"]')?.href,
-  }));
-  const stages = () => $$(".checkpoint").map((c) => ({
-    id: text(c.querySelector(".checkpoint__id")),
-    kind: text(c.querySelector(".checkpoint__kind")),
-    when: text(c.querySelector(".checkpoint__head time, .checkpoint__live, .checkpoint__status")),
-    title: c.querySelector(".checkpoint__title")?.dataset.text || text(c.querySelector(".checkpoint__title")),
-    place: text(c.querySelector(".checkpoint__place")),
-  }));
-  const skills = () => [...new Set($$(".marquee .skill > span:not(.tip)").map(text))];
+  const { projects, stages, skills } = cvData;
 
   /* ----- Salida ----- */
   const print = (html, cls = "") => {
@@ -3706,7 +3698,7 @@ function initTerminal() {
     trayectoria: {
       desc: "de dónde vengo",
       run: () => stages().forEach((s) => print(
-        `<span class="term__sha">${esc(s.id)}</span> <span class="term__muted">${esc(s.kind.padEnd(13, " "))}</span>${esc(s.title)}${s.place ? ` <span class="term__muted">· ${esc(s.place)}</span>` : ""}${s.when ? ` <span class="term__muted">(${esc(s.when)})</span>` : ""}`
+        `<span class="term__sha">${esc(s.id)}</span> <span class="term__muted">${esc(s.label.padEnd(13, " "))}</span>${esc(s.title)}${s.place ? ` <span class="term__muted">· ${esc(s.place)}</span>` : ""}${s.when ? ` <span class="term__muted">(${esc(s.when)})</span>` : ""}`
       )),
     },
     contacto: {
@@ -3737,6 +3729,7 @@ function initTerminal() {
         go(SECTIONS[key]);
       },
     },
+    cv: { desc: "el CV entero en una pantalla (modo reclutador)", run: () => { close(); window.dispatchEvent(new Event("cvq:open")); } },
     clear: { desc: "limpiar", run: () => (out.innerHTML = "") },
     exit: { desc: "cerrar", run: () => close() },
     // ocultos
@@ -3988,4 +3981,177 @@ function initBatBuddy() {
   if (contact) new IntersectionObserver(([e]) => !e.isIntersecting && unmerge()).observe(contact);
 
   window.addEventListener("resize", () => state === "resting" && (Object.assign(pos, rest()), place()));
+}
+
+/* ---------- Hero vivo: botones magnéticos y un nombre que reacciona al ratón ---------- */
+// Los botones se dejan atraer un poco por el cursor. Las letras del título cercanas al ratón se elevan,
+// crecen y se encienden (con translate/scale sueltos, para no pisar el transform de la intro).
+// Solo con ratón de verdad; el bucle solo corre mientras algo se mueve.
+function initHeroLife() {
+  if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+
+  document.querySelectorAll(".btn--magnet").forEach((btn) => {
+    const ease = { duration: 0.5, ease: "power3.out" };
+    const toX = gsap.quickTo(btn, "x", ease), toY = gsap.quickTo(btn, "y", ease);
+    btn.addEventListener("pointermove", (e) => {
+      const r = btn.getBoundingClientRect();
+      toX((e.clientX - r.left - r.width / 2) * 0.28);
+      toY((e.clientY - r.top - r.height / 2) * 0.4);
+    });
+    btn.addEventListener("pointerleave", () => {
+      gsap.to(btn, { x: 0, y: 0, duration: 0.8, ease: "elastic.out(1, 0.45)" });
+    });
+  });
+
+  const title = document.querySelector(".hero__title");
+  if (!title) return;
+  const RANGE = 150; // px alrededor del cursor
+  let chars = [], centers = [], power = [], mouse = null, raf = 0;
+  const measure = () => {
+    chars = [...title.querySelectorAll(".split-char")];
+    if (!chars.length) return;
+    // sin desplazamientos aplicados, para medir donde están de verdad
+    chars.forEach((c) => c.style.setProperty("--p", 0));
+    centers = chars.map((c) => {
+      const r = c.getBoundingClientRect();
+      return [r.left + r.width / 2, r.top + r.height / 2];
+    });
+    power = chars.map(() => 0);
+  };
+  const tick = () => {
+    let moving = false;
+    for (let i = 0; i < chars.length; i++) {
+      let target = 0;
+      if (mouse) {
+        const d = Math.hypot(mouse[0] - centers[i][0], mouse[1] - centers[i][1]);
+        if (d < RANGE) target = (1 - d / RANGE) ** 2;
+      }
+      const p = power[i] + (target - power[i]) * 0.18;
+      power[i] = Math.abs(target - p) < 0.002 ? target : p;
+      if (power[i] !== target) moving = true;
+      chars[i].style.setProperty("--p", power[i].toFixed(3));
+    }
+    raf = moving ? requestAnimationFrame(tick) : 0;
+  };
+  const wake = () => { if (!raf) raf = requestAnimationFrame(tick); };
+
+  title.closest(".hero").addEventListener("pointermove", (e) => {
+    if (!title.classList.contains("is-alive")) return; // hasta que acabe la intro
+    if (!centers.length) measure();
+    mouse = [e.clientX, e.clientY];
+    wake();
+  });
+  title.closest(".hero").addEventListener("pointerleave", () => { mouse = null; wake(); });
+  // al hacer scroll o cambiar el tamaño, las letras cambian de sitio: se vuelven a medir
+  const invalidate = () => { if (!mouse) centers = []; else { mouse = null; wake(); centers = []; } };
+  window.addEventListener("scroll", invalidate, { passive: true });
+  window.addEventListener("resize", invalidate);
+}
+
+/* ---------- Datos del CV leídos de la propia página (los usan la terminal y el modo reclutador) ---------- */
+const cvText = (el) => (el ? el.textContent.replace(/\s+/g, " ").trim() : "");
+// texto de un elemento sin sus tooltips (.tip)
+const cvLabel = (el) => {
+  if (!el) return "";
+  const copy = el.cloneNode(true);
+  copy.querySelectorAll(".tip").forEach((t) => t.remove());
+  return cvText(copy);
+};
+const cvData = {
+  projects: () => [...document.querySelectorAll(".project-card")].map((c) => ({
+    name: cvText(c.querySelector(".project-card__title")),
+    meta: cvText(c.querySelector(".project-card__meta")),
+    desc: cvText(c.querySelector(".project-card__desc")),
+    url: c.querySelector('.project-card__links a[href^="http"]')?.href,
+    stack: [...c.querySelectorAll(".tags li")].map(cvLabel),
+  })),
+  stages: () => [...document.querySelectorAll(".checkpoint")].map((c) => ({
+    kind: c.dataset.kind,
+    id: cvText(c.querySelector(".checkpoint__id")),
+    label: cvText(c.querySelector(".checkpoint__kind")),
+    when: cvText(c.querySelector(".checkpoint__head time, .checkpoint__live, .checkpoint__status")),
+    title: c.querySelector(".checkpoint__title")?.dataset.text || cvText(c.querySelector(".checkpoint__title")),
+    place: cvText(c.querySelector(".checkpoint__place")),
+    desc: cvText(c.querySelector(".checkpoint__desc")),
+  })),
+  skills: () => [...new Set([...document.querySelectorAll(".marquee .skill")].map(cvLabel))],
+  summary: () => cvText(document.querySelector(".hero__desc")),
+  status: () => cvText(document.querySelector(".hero__status-text")),
+  link: (label) => document.querySelector(`.social-rail a[aria-label="${label}"]`)?.href,
+};
+
+/* ---------- Modo reclutador: el CV entero en una pantalla, para leerlo en 30 segundos o imprimirlo ---------- */
+function initRecruiter() {
+  const dialog = document.getElementById("cvq");
+  if (!dialog || typeof dialog.showModal !== "function") return;
+  const body = dialog.querySelector(".cvq__body");
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const EMAIL = "rincon.enriquemv@gmail.com";
+
+  const render = () => {
+    const stages = cvData.stages();
+    const item = (s) => `<li class="cvq__item">
+        <div class="cvq__when">${esc(s.when)}</div>
+        <div><b>${esc(s.title)}</b>${s.place ? ` · ${esc(s.place)}` : ""}${s.desc ? `<p>${esc(s.desc)}</p>` : ""}</div>
+      </li>`;
+    // como en cualquier CV: lo más reciente primero
+    const work = stages.filter((s) => s.kind === "work").reverse();
+    const edu = stages.filter((s) => s.kind === "edu").reverse();
+    const github = cvData.link("GitHub"), linkedin = cvData.link("LinkedIn");
+    body.innerHTML = `
+      <header class="cvq__head">
+        <img class="cvq__avatar" src="assets/avatar-bat.webp" alt="" width="64" height="64" />
+        <div>
+          <h2 class="cvq__name">Enrique Rincón</h2>
+          <p class="cvq__role">Full Stack Developer · <span class="cvq__status">${esc(cvData.status())}</span></p>
+        </div>
+      </header>
+      <p class="cvq__contact">
+        <a href="mailto:${EMAIL}">${EMAIL}</a>
+        ${linkedin ? `<a href="${esc(linkedin)}" target="_blank" rel="noopener">LinkedIn</a>` : ""}
+        ${github ? `<a href="${esc(github)}" target="_blank" rel="noopener">github.com/rinconn</a>` : ""}
+      </p>
+      <p class="cvq__summary">${esc(cvData.summary())}</p>
+      <div class="cvq__grid">
+        <section><h3>Experiencia</h3><ul>${work.map(item).join("")}</ul></section>
+        <section><h3>Formación</h3><ul>${edu.map(item).join("")}</ul></section>
+      </div>
+      <section><h3>Proyectos</h3><ul class="cvq__projects">${cvData.projects().map((p) => `<li>
+          <b>${esc(p.name)}</b> <span class="cvq__muted">· ${esc(p.meta)}</span>
+          <p>${esc(p.desc)}</p>
+          <p class="cvq__stack">${p.stack.map(esc).join(" · ")}${p.url ? ` · <a href="${esc(p.url)}" target="_blank" rel="noopener">código ↗</a>` : ""}</p>
+        </li>`).join("")}</ul></section>
+      <section><h3>Stack</h3><p class="cvq__skills">${cvData.skills().map((s) => `<span>${esc(s)}</span>`).join("")}</p></section>`;
+  };
+
+  const open = () => {
+    if (dialog.open) return;
+    render();
+    lenis?.stop();
+    dialog.showModal();
+    dialog.querySelector(".cvq__close").focus();
+  };
+  const close = () => {
+    if (dialog.open) dialog.close();
+    lenis?.start();
+  };
+  dialog.addEventListener("close", () => lenis?.start());
+  dialog.addEventListener("click", (e) => e.target === dialog && close());
+  dialog.querySelector(".cvq__close").addEventListener("click", close);
+  // imprimir solo el CV (o guardarlo como PDF desde el diálogo de impresión)
+  dialog.querySelector("[data-cvq-print]").addEventListener("click", () => {
+    document.documentElement.classList.add("is-printing-cv");
+    window.print();
+  });
+  window.addEventListener("afterprint", () => document.documentElement.classList.remove("is-printing-cv"));
+  dialog.querySelector("[data-cvq-copy]").addEventListener("click", async (e) => {
+    try {
+      await navigator.clipboard.writeText(EMAIL);
+      e.currentTarget.textContent = "Email copiado ✓";
+    } catch {
+      e.currentTarget.textContent = EMAIL;
+    }
+  });
+  document.querySelectorAll("[data-cvq-open]").forEach((b) => b.addEventListener("click", open));
+  window.addEventListener("cvq:open", open);
 }
