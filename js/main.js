@@ -2672,25 +2672,28 @@ function initContact() {
   const mobile = matchMedia("(max-width: 760px)").matches;
   const motion = !prefersReducedMotion;
 
-  const makeSprite = ([r, g, b]) => {
+  // las chispas se pintan a 4–8 px: con un sprite de 24 px la GPU escala menos (64 solo para ojos y destellos)
+  const makeSprite = ([r, g, b], n = 64) => {
     const c = document.createElement("canvas");
-    c.width = c.height = 64;
+    c.width = c.height = n;
     const x = c.getContext("2d");
-    const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+    const h = n / 2;
+    const gr = x.createRadialGradient(h, h, 0, h, h, h);
     gr.addColorStop(0, "#fff");
     gr.addColorStop(0.18, `rgb(${r}, ${g}, ${b})`);
     gr.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, 0.3)`);
     gr.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
     x.fillStyle = gr;
-    x.fillRect(0, 0, 64, 64);
+    x.fillRect(0, 0, n, n);
     return c;
   };
   const ICE = [80, 180, 255], AMBER = [255, 163, 26], RED = [255, 34, 40];
   // por tipo de chispa: 0 borde (oro), 1 huesos y trazos (ámbar), 2 membrana (sangre), 3 colmillos (blanco caliente)
-  const SPR = [makeSprite([255, 208, 112]), makeSprite(AMBER), makeSprite([225, 18, 32]), makeSprite([255, 236, 214])];
+  const SPR = [makeSprite([255, 208, 112], 24), makeSprite(AMBER, 24), makeSprite([225, 18, 32], 24), makeSprite([255, 236, 214], 24)];
   const SPR_ICE = makeSprite(ICE);
   const SPR_RED = makeSprite(RED);
-  const SPR_AMBER = SPR[1];
+  const SPR_AMBER = makeSprite(AMBER);
+  const KIND_ALPHA = [0.8, 0.7, 0.3, 0.95];
   const rgba = ([r, g, b], a) => `rgba(${r}, ${g}, ${b}, ${a})`;
 
   /* ----- Silueta (unidades: las alas van de -1 a 1, la y hacia abajo) ----- */
@@ -2764,7 +2767,7 @@ function initContact() {
     parts.push({
       ux, uy, kind, side,
       w: wingW(ux),
-      size: [3.1, 2.8, 2.5, 2.4][kind] * (mobile ? 0.8 : 1),
+      size: [3.1, 2.8, 2.5, 2.4][kind] * (mobile ? 0.8 : 1.08),
       ph: Math.random() * Math.PI * 2,
       ang: Math.random() * Math.PI * 2, // rumbo de la sangre que corre por la membrana
       spd: 0.5 + Math.random(),
@@ -2774,7 +2777,8 @@ function initContact() {
       ox: 0, oy: 0, vx: 0, vy: 0, ice: 0, X: 0, Y: 0,
     });
   };
-  const g = mobile ? 0.013 : 0.0092;
+  // separación de la malla: cada chispa es un drawImage por frame, así que es lo que más cuesta
+  const g = mobile ? 0.013 : 0.0104;
   for (let y = -0.48; y < 0.4; y += g) {
     for (let x = -1.02; x < 1.02; x += g) {
       const px = x + (Math.random() - 0.5) * g * 0.6, py = y + (Math.random() - 0.5) * g * 0.6;
@@ -2824,7 +2828,7 @@ function initContact() {
   let W = 0, H = 0, S = 1, cx = 0, cy = 0, hx = 0, hy = 0;
   const layout = () => {
     const r = stage.getBoundingClientRect();
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, mobile ? 1.25 : 1.5); // chispas difusas: más resolución no se aprecia
     W = r.width;
     H = r.height;
     canvas.width = Math.round(W * dpr);
@@ -2859,16 +2863,27 @@ function initContact() {
     statusHTML = html;
     statusEl.innerHTML = html;
   };
-  const found = () => targets.filter((t) => t.found).length;
+  let nFound = 0;
+  const found = () => nFound;
 
-  // de unidades del murciélago a pantalla, con el aleteo (sin el empujón del ratón)
+  // de unidades del murciélago a pantalla, con el aleteo (sin el empujón del ratón).
+  // place() deja el resultado en PX, PY para no crear un array por chispa en cada frame
+  let PX = 0, PY = 0;
+  const place = (ux, uy, side, w) => {
+    const sx = side * SHOULDER[0], sy = SHOULDER[1], k = S * zoom;
+    if (w > 0) {
+      const dx = ux - sx, dy = uy - sy;
+      const a = flap * side * (0.5 + 0.5 * w), c = Math.cos(a), s = Math.sin(a);
+      PX = cx + (sx + dx * c + dy * s) * k;
+      PY = cy + bob + (sy - dx * s + dy * c) * k;
+    } else {
+      PX = cx + ux * k;
+      PY = cy + bob + uy * k;
+    }
+  };
   const toScreen = (ux, uy) => {
-    const side = Math.sign(ux) || 1, w = wingW(ux);
-    const sx = side * SHOULDER[0], sy = SHOULDER[1];
-    const dx = ux - sx, dy = uy - sy;
-    const a = w > 0 ? flap * side * (0.5 + 0.5 * w) : 0;
-    const c = Math.cos(a), s = Math.sin(a);
-    return [cx + (sx + dx * c + dy * s) * S * zoom, cy + bob + (sy - dx * s + dy * c) * S * zoom];
+    place(ux, uy, Math.sign(ux) || 1, wingW(ux));
+    return [PX, PY];
   };
 
   // ultrasonidos: un chorro de partículas de sonido que sale de la boca; las que dan en un enlace rebotan
@@ -2893,6 +2908,7 @@ function initContact() {
     t.el.classList.add("is-ping");
     if (!t.found) {
       t.found = true;
+      nFound++;
       t.el.classList.add("is-found");
       const k = found();
       if (k === targets.length) stage.dispatchEvent(new Event("echo:ready"));
@@ -3034,8 +3050,10 @@ function initContact() {
     // la sangre: corre a borbotones con cada latido y se vuelve loca al chillar
     const pump = 0.45 + 1.2 * Math.max(0, Math.sin(time * 2.6)) ** 4 + lunge * 1.5;
     const sp = 0.16 * dt * pump; // en unidades del ala
+    const damp = Math.pow(0.86, f), iceDecay = Math.pow(0.95, f), pull = 0.05 * f;
+    const blood = motion && introT >= INTRO, forming = introT < INTRO + 1.2;
     for (const p of parts) {
-      if (p.kind === 2 && motion && introT >= INTRO) {
+      if (p.kind === 2 && blood) {
         p.ang += (Math.random() - 0.5) * 0.9 * f;
         const nx = p.ux + Math.cos(p.ang) * sp * p.spd, ny = p.uy + Math.sin(p.ang) * sp * p.spd;
         if (deep(nx, ny)) {
@@ -3045,9 +3063,10 @@ function initContact() {
           p.w = wingW(nx);
         } else p.ang += Math.PI * (0.6 + Math.random() * 0.8); // rebota contra el borde
       }
-      let [X, Y] = toScreen(p.ux, p.uy);
+      place(p.ux, p.uy, p.side, p.w);
+      let X = PX, Y = PY;
       p.a = 1;
-      if (introT < INTRO + 1.2) {
+      if (forming) {
         const lt = Math.min(1, Math.max(0, (introT - p.delay) / 1.1));
         const e = 1 - (1 - lt) ** 3;
         const wob = (1 - e) * 40;
@@ -3064,11 +3083,13 @@ function initContact() {
           p.vy += (ddy / d) * force * f;
         }
       }
-      p.vx = (p.vx - p.ox * 0.05 * f) * Math.pow(0.86, f);
-      p.vy = (p.vy - p.oy * 0.05 * f) * Math.pow(0.86, f);
+      p.vx = (p.vx - p.ox * pull) * damp;
+      p.vy = (p.vy - p.oy * pull) * damp;
       p.ox += p.vx * f;
       p.oy += p.vy * f;
-      p.ice = Math.max(p.ice * Math.pow(0.95, f), Math.min(1, Math.hypot(p.ox, p.oy) / 30));
+      p.ice *= iceDecay;
+      const o2 = p.ox * p.ox + p.oy * p.oy; // la raíz solo si se ha movido algo
+      if (o2 > 0.01) p.ice = Math.max(p.ice, Math.min(1, Math.sqrt(o2) / 30));
       p.X = X + p.ox;
       p.Y = Y + p.oy;
     }
@@ -3139,11 +3160,16 @@ function initContact() {
     ctx.restore();
 
     // el murciélago: un latido recorre la membrana desde el cuerpo hasta las puntas
+    const t22 = time * 2.2, t26 = time * 2.6;
     for (const p of parts) {
-      const tw = 0.75 + 0.25 * Math.sin(time * 2.2 + p.ph);
-      const pulse = p.kind === 2 && motion ? Math.max(0, Math.sin(time * 2.6 - Math.abs(p.ux) * 7)) ** 6 : 0;
+      const tw = 0.75 + 0.25 * Math.sin(t22 + p.ph);
+      let pulse = 0;
+      if (p.kind === 2 && motion) {
+        const v = Math.sin(t26 - Math.abs(p.ux) * 7);
+        if (v > 0) pulse = (v * v * v) ** 2;
+      }
       const s = p.size * (1 + p.ice * 0.4 + pulse * 0.5);
-      ctx.globalAlpha = Math.min(1, [0.8, 0.7, 0.3, 0.95][p.kind] + pulse * 0.55) * tw * p.a * (1 - p.ice * 0.6);
+      ctx.globalAlpha = Math.min(1, KIND_ALPHA[p.kind] + pulse * 0.55) * tw * p.a * (1 - p.ice * 0.6);
       ctx.drawImage(SPR[p.kind], p.X - s, p.Y - s, s * 2, s * 2);
       if (p.ice > 0.05) {
         ctx.globalAlpha = p.ice * 0.9 * p.a;
@@ -3280,6 +3306,7 @@ function initContact() {
 
   if (!motion) {
     targets.forEach((t) => { t.found = true; t.el.classList.add("is-found"); });
+    nFound = targets.length;
     status(`&gt; ${targets.length} señales encontradas`);
     return;
   }
