@@ -4049,3 +4049,16 @@ html.lenis body {
     border-color: #ccc;
   }
 }
+
+/* en móvil, la píldora del modo reclutador baja a su propia línea en vez de apretar el badge */
+@media (max-width: 760px) {
+  .hero__identity {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .hero__quick {
+    flex-basis: 100%;
+    justify-content: center;
+  }
+}
