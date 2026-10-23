@@ -1102,19 +1102,9 @@ function initTimeline() {
   let points = [];    // centro de cada nodo, color y borde de su tarjeta más cercano al hilo
   let segs = [];      // tramos: parámetros de la curva + tabla de longitudes para recorrerla a velocidad constante
   let stops = [];     // 0 → 1: en qué punto de la carga se enciende cada nodo
-  let mains = [];     // carriles de main que corren en paralelo a las ramas
-
   // Punto del tramo en t ∈ [0, 1] sin ondulación. θ va de -π a π: en los extremos la curva sale
   // vertical del nodo y en el centro (b > a) da la vuelta sobre sí misma → bucle
-  // Si los dos nodos están en carriles distintos (una rama de Git) el tramo no hace bucle: baja recto,
-  // cambia de carril con una curva suave y vuelve a bajar recto, como en un gráfico de git log
   const basePoint = (s, t, out) => {
-    if (s.lane) {
-      const u = Math.min(1, Math.max(0, (t - 0.22) / 0.56));
-      out.x = s.x0 + s.lane * u * u * (3 - 2 * u);
-      out.y = s.y0 + s.d * t;
-      return out;
-    }
     const th = -Math.PI + 2 * Math.PI * t;
     out.x = s.x0 + s.dir * s.bx * (1 + Math.cos(th));
     out.y = s.y0 + s.a * (th + Math.PI) - s.b * Math.sin(th);
@@ -1141,8 +1131,7 @@ function initTimeline() {
       const d = q.y - p.y;
       const a = d / (2 * Math.PI);
       const s = {
-        i, x0: p.x, y0: p.y, a, d,
-        lane: Math.abs(q.x - p.x) > 2 ? q.x - p.x : 0,
+        i, x0: p.x, y0: p.y, a,
         b: a * (mobile ? 1.3 : 1.8),             // > a → bucle; cuanto más, más grande
         bx: mobile ? 10 : 46,                     // anchura del bucle (en móvil casi una onda)
         dir: mobile ? 1 : i % 2 ? -1 : 1,         // en escritorio cada bucle sale hacia un lado
@@ -1163,17 +1152,6 @@ function initTimeline() {
     }
     total = Math.max(1, acc);
     stops = stops.map((v) => v / total);
-
-    // Tramos de "main" que siguen rectos mientras los proyectos van por su rama:
-    // desde el nodo anterior a una racha de ramas hasta el primero que vuelve al eje
-    mains = [];
-    for (let i = 1; i < checkpoints.length; i++) {
-      if (!checkpoints[i].dataset.branch || checkpoints[i - 1].dataset.branch) continue;
-      let j = i;
-      while (j < checkpoints.length && checkpoints[j].dataset.branch) j++;
-      if (j < checkpoints.length) mains.push({ from: i - 1, to: j, x: points[i - 1].x, y0: points[i - 1].y, y1: points[j].y });
-    }
-
     const top = points[0].y, bottom = points[points.length - 1].y;
     timeline.style.setProperty("--track-top", `${top}px`);
     timeline.style.setProperty("--track-h", `${bottom - top}px`);
@@ -1184,7 +1162,7 @@ function initTimeline() {
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (animate) seedDust(); // sin animaciones no hay polvo (ni se ha creado su lista todavía)
+    if (animate) { seedDust(); treesDirty = true; } // sin animaciones no hay polvo ni dendritas (ni existen sus listas)
   };
 
   // Sin animaciones: línea recta cargada, nodos encendidos y tarjetas visibles desde el principio
@@ -1271,11 +1249,90 @@ function initTimeline() {
     }));
   }
 
+  /* ----- Dendritas: todo el hilo es una neurona que se ramifica según le llega la carga ----- */
+  // Los nodos echan los árboles grandes (hacia el lado libre) y a lo largo del hilo brotan ramas más
+  // pequeñas a ambos lados. Semilla fija: siempre salen iguales. Esquivan las tarjetas
+  let trees = [];
+  let treesDirty = false; // measure() solo lo marca: locate() aún no existe la primera vez
+  const impulses = [];
+  function seedDendrites() {
+    const old = trees;
+    trees = [];
+    impulses.length = 0;
+    const k = mobile ? 0.3 : 1;
+    const margin = mobile ? 4 : 14;
+    const rects = cards.map((c) => {
+      const o = offsetIn(c);
+      return { x: o.x - margin, y: o.y - margin, r: o.x + c.offsetWidth + margin, b: o.y + c.offsetHeight + margin };
+    });
+    const blocked = (x, y) => x < 4 || x > w - 4 || rects.some((r) => x > r.x && x < r.r && y > r.y && y < r.b);
+
+    let seed = 9973;
+    const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+
+    const tree = (x, y, at, color, angles, len, max) => {
+      const br = [];
+      const grow = (x0, y0, ang, l, depth, t0, parent) => {
+        if (br.length > max) return;
+        const x1 = x0 + Math.cos(ang) * l, y1 = y0 + Math.sin(ang) * l;
+        if (blocked(x1, y1)) return;
+        const bend = (rand() - 0.5) * l * 0.45; // las ramas no son rectas
+        const b = {
+          x0, y0, x1, y1, depth, t0, t1: t0 + l, parent, leaf: true, glow: 0,
+          mx: (x0 + x1) / 2 - Math.sin(ang) * bend, my: (y0 + y1) / 2 + Math.cos(ang) * bend,
+        };
+        br.push(b);
+        if (parent) parent.leaf = false;
+        if (depth >= 6 || l < 7 * k + 2) return;
+        const n = rand() < 0.22 ? 3 : rand() < 0.85 ? 2 : 1;
+        for (let j = 0; j < n; j++) {
+          const spread = n === 1 ? (rand() - 0.5) * 0.4 : (j / (n - 1) - 0.5) * (0.75 + rand() * 0.5);
+          grow(x1, y1, ang + spread + (rand() - 0.5) * 0.3, l * (0.66 + rand() * 0.16), depth + 1, b.t1, b);
+        }
+      };
+      for (const ang of angles) grow(x + Math.cos(ang) * 14 * k, y + Math.sin(ang) * 14 * k, ang, len * (0.8 + rand() * 0.4), 0, 0, null);
+      if (!br.length) return;
+      const prev = old.find((t) => t.at === at);
+      trees.push({
+        at, br, color, ph: rand() * 6.28, g: prev ? prev.g : 0,
+        leaves: br.filter((b) => b.leaf),
+        maxT: Math.max(...br.map((b) => b.t1)),
+      });
+    };
+
+    // árboles grandes en los nodos (en móvil, hacia el hueco de la izquierda)
+    points.forEach((p, i) => {
+      const base = mobile ? Math.PI : p.left ? 0 : Math.PI;
+      const n = mobile ? 2 : 3 + ((rand() * 2) | 0);
+      const angles = Array.from({ length: n }, (_, j) => base + (j / (n - 1) - 0.5) * (mobile ? 2.4 : 1.9) + (rand() - 0.5) * 0.3);
+      tree(p.x, p.y, stops[i] * total, p.color, angles, 92 * k, mobile ? 30 : 80);
+    });
+
+    // brotes a lo largo del hilo, a ambos lados, cada cierta distancia
+    const tmpP = { x: 0, y: 0 };
+    const gap = mobile ? 70 : 85;
+    for (let d = gap; d < total - 40; d += gap * (0.7 + rand() * 0.6)) {
+      locate(d, loc);
+      basePoint(loc.seg, loc.t, tmpP);
+      const side = rand() < 0.5 ? 0 : Math.PI;
+      const tilt = (rand() - 0.5) * 1.2;
+      tree(tmpP.x, tmpP.y, d, PALETTE[["cyan", "pink", "red"][(rand() * 3) | 0]], [side + tilt, side + tilt + (rand() < 0.5 ? 0.9 : -0.9)], 48 * k, mobile ? 12 : 34);
+    }
+  }
+
+  // Lanza un impulso por una dendrita (a una punta concreta o a una al azar)
+  const fire = (tree, leaf) => {
+    if (impulses.length > 50 || tree.g < 0.98) return;
+    leaf = leaf || tree.leaves[(Math.random() * tree.leaves.length) | 0];
+    impulses.push({ tree, leaf, d: 0, v: 4 + Math.random() * 3, c: (Math.random() * 3) | 0 });
+  };
+
   /* ----- Ondas, rayos y pulsos (pocos a la vez: aquí sí valen objetos) ----- */
   const waves = [];
   const bolts = [];
   const pulses = [];
   let nextPulse = 0;
+  let nextImpulse = 0;
 
   // Onda cromática: tres anillos (cian, rosa, rojo) algo desfasados
   const wave = (x, y, max = 120) => {
@@ -1415,6 +1472,7 @@ function initTimeline() {
       const p = points[i];
       bolt(p.x, p.y, p.edge, p.y + (Math.random() - 0.5) * 30, 18, 1.6, p.color);
       wave(p.x, p.y, 70);
+      for (const t of trees) if (Math.abs(t.at - stops[i] * total) < 1) for (let k = 0; k < 6; k++) fire(t);
     });
     // inclinación 3D hacia el ratón (solo con ratón de verdad)
     const fine = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
@@ -1556,78 +1614,64 @@ function initTimeline() {
     }
   };
 
-  // Main sigue recto mientras los proyectos van por su rama: se carga a la vez que la cabeza baja
-  // y tiene sus propios commits (anillos que se rellenan al pasar la carga)
-  const drawMains = () => {
-    const headY = headIndex >= 0 ? by[headIndex] - PAD : 0;
-    for (const m of mains) {
-      const done = charge.p >= stops[m.to] - 0.001;
-      const hy = done ? m.y1 : Math.max(m.y0, Math.min(m.y1, headY));
-      const xAt = (y) => m.x + Math.sin(y * 0.018 + time * 0.035) * (mobile ? 1.5 : 3) * Math.sin(Math.PI * (y - m.y0) / (m.y1 - m.y0));
+  // Dendritas: cada rama es una curva cuadrática que se dibuja hasta donde ha llegado el crecimiento.
+  // Se mecen un poco (más cuanto más lejos del nodo) y las puntas brillan como sinapsis
+  const sx = new Float32Array(9), sy = new Float32Array(9);
+  const Q = { x: 0, y: 0 };
+  const onBranch = (b, f, out) => {
+    const u = 1 - f;
+    const x0 = b.x0 + sx[b.depth], y0 = b.y0 + sy[b.depth];
+    const x1 = b.x1 + sx[b.depth + 1], y1 = b.y1 + sy[b.depth + 1];
+    const cx = b.mx + (sx[b.depth] + sx[b.depth + 1]) / 2, cy = b.my + (sy[b.depth] + sy[b.depth + 1]) / 2;
+    out.x = u * u * x0 + 2 * u * f * cx + f * f * x1;
+    out.y = u * u * y0 + 2 * u * f * cy + f * f * y1 + PAD;
+    return out;
+  };
+  const swayFor = (tree) => {
+    for (let d = 0; d < sx.length; d++) {
+      sx[d] = Math.sin(time * 0.021 + tree.ph + d * 0.7) * d * 1.1;
+      sy[d] = Math.cos(time * 0.017 + tree.ph * 1.3 + d * 0.9) * d * 1.4;
+    }
+  };
 
-      ctx.globalAlpha = 0.16;
-      ctx.lineWidth = 1.2;
-      ctx.strokeStyle = "#fff";
-      ctx.setLineDash([2, 7]);
-      ctx.beginPath();
-      for (let y = hy; y <= m.y1; y += 8) (y === hy ? ctx.moveTo(xAt(y), y + PAD) : ctx.lineTo(xAt(y), y + PAD));
-      ctx.lineTo(m.x, m.y1 + PAD);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      if (hy > m.y0 + 1) {
-        for (const [alpha, width] of [[0.12, 12], [0.85, 2]]) {
-          ctx.globalAlpha = alpha;
-          ctx.lineWidth = width;
-          for (let y = m.y0; y < hy; y += 12) {
-            const y2 = Math.min(hy, y + 12);
-            ctx.strokeStyle = flowAt((y - m.y0) * 0.0025 - time * 0.012 + 0.5);
-            ctx.beginPath(); ctx.moveTo(xAt(y), y + PAD); ctx.lineTo(xAt(y2), y2 + PAD); ctx.stroke();
-          }
-        }
+  const drawDendrites = () => {
+    for (const tree of trees) {
+      if (tree.g <= 0.001) continue;
+      swayFor(tree);
+      const reach = tree.maxT * (1 - (1 - tree.g) ** 3);
+      const col = rgb(tree.color);
+      const spr = spriteOf(tree.color);
+      ctx.strokeStyle = col;
+      for (const b of tree.br) {
+        if (b.t0 >= reach) continue;
+        const f = Math.min(1, (reach - b.t0) / (b.t1 - b.t0));
+        // trozo de la curva de 0 a f (de Casteljau): control intermedio + punto final
+        const x0 = b.x0 + sx[b.depth], y0 = b.y0 + sy[b.depth] + PAD;
+        const cx = b.mx + (sx[b.depth] + sx[b.depth + 1]) / 2, cy = b.my + (sy[b.depth] + sy[b.depth + 1]) / 2 + PAD;
+        onBranch(b, f, Q);
+        ctx.globalAlpha = (0.62 - b.depth * 0.06) * Math.min(1, tree.g * 2);
+        ctx.lineWidth = Math.max(0.6, 2.6 - b.depth * 0.36);
+        ctx.beginPath();
+        ctx.moveTo(x0, y0);
+        ctx.quadraticCurveTo(x0 + (cx - x0) * f, y0 + (cy - y0) * f, Q.x, Q.y);
+        ctx.stroke();
+        if (f < 1) glow(spr, Q.x, Q.y, 14, 0.9); // punta que avanza mientras crece
+        else if (b.leaf) glow(spr, Q.x, Q.y, 9 + 4 * Math.sin(time * 0.08 + b.t1), 0.55 + b.glow * 0.45);
+        b.glow = Math.max(0, b.glow - 0.02);
       }
+    }
 
-      // commits de main
-      const n = Math.max(1, Math.round((m.y1 - m.y0) / 120));
-      for (let k = 1; k < n; k++) {
-        const y = m.y0 + ((m.y1 - m.y0) * k) / n;
-        const on = y <= hy;
-        ctx.globalAlpha = on ? 1 : 0.3;
-        ctx.lineWidth = 1.5;
-        ctx.strokeStyle = on ? "#fff" : "rgba(255, 255, 255, 0.6)";
-        ctx.beginPath(); ctx.arc(xAt(y), y + PAD, mobile ? 3 : 4.5, 0, Math.PI * 2); ctx.stroke();
-        if (on) glow(SPRITES[(k + 1) % 3], xAt(y), y + PAD, 26 + 6 * Math.sin(time * 0.07 + k), 0.8);
-      }
+    // impulsos: un destello que viaja desde el nodo hasta una de las puntas
+    for (const im of impulses) {
+      let b = im.leaf;
+      while (b.parent && b.t0 > im.d) b = b.parent;
+      swayFor(im.tree);
+      onBranch(b, Math.max(0, Math.min(1, (im.d - b.t0) / (b.t1 - b.t0))), Q);
+      glow(SPRITES[im.c], Q.x, Q.y, 22, 0.95);
+      glow(SPRITES[0], Q.x, Q.y, 7, 1);
     }
   };
 
-  // Etiquetas en monoespaciada sobre el canvas: "main" en su carril y "HEAD" pegada a la carga
-  const tag = (text, x, y, color, align = "left", alpha = 1) => {
-    ctx.font = '600 10.5px "JetBrains Mono", ui-monospace, monospace';
-    const tw = ctx.measureText(text).width + 12;
-    const x0 = align === "right" ? x - tw : x;
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = "rgba(9, 10, 15, 0.88)";
-    ctx.fillRect(x0, y - 9, tw, 18);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x0 + 0.5, y - 8.5, tw - 1, 17);
-    ctx.fillStyle = color;
-    ctx.textBaseline = "middle";
-    ctx.fillText(text, x0 + 6, y + 0.5);
-  };
-
-  const drawTags = () => {
-    if (mobile) return;
-    for (const m of mains) {
-      const a = Math.min(1, Math.max(0, (charge.p - stops[m.from]) * 40));
-      if (a > 0) tag("main", m.x - 14, m.y0 + 78, "#e8ecf2", "right", a);
-    }
-    if (charge.p > 0.001 && charge.p < 0.999 && headIndex >= 0) {
-      const x = bx[headIndex], y = by[headIndex];
-      tag("HEAD", x + 22, y, flowAt(time * 0.01), "left", 0.95);
-    }
-  };
 
   const drawNode = (i, dt) => {
     const p = points[i];
@@ -1687,7 +1731,7 @@ function initTimeline() {
     for (const m of dust) glow(SPRITES[m.c], m.x, m.y, m.s, 0.18 + 0.22 * Math.sin(time * 0.05 + m.ph) ** 2);
 
     buildThread();
-    drawMains();
+    drawDendrites();
     drawThread();
 
     checkpoints.forEach((c, i) => {
@@ -1738,7 +1782,6 @@ function initTimeline() {
     }
 
     ctx.globalCompositeOperation = "source-over";
-    drawTags();
     ctx.globalAlpha = 1;
   };
 
@@ -1789,6 +1832,35 @@ function initTimeline() {
     }
     for (let k = waves.length - 1; k >= 0; k--) if ((waves[k].t += dt) > 42) waves.splice(k, 1);
     for (let k = bolts.length - 1; k >= 0; k--) if ((bolts[k].life -= dt) <= 0) bolts.splice(k, 1);
+
+    // dendritas: crecen cuando les llega la carga y se recogen si se vuelve atrás
+    if (treesDirty) { treesDirty = false; seedDendrites(); }
+    for (const t of trees) t.g = Math.max(0, Math.min(1, t.g + (head >= t.at - 1 ? 0.014 : -0.04) * dt));
+    // impulsos que salen del hilo hacia las puntas; al llegar, la sinapsis brilla y chisporrotea
+    nextImpulse -= dt;
+    if (nextImpulse <= 0) {
+      const grown = trees.filter((t) => t.g >= 0.98);
+      if (grown.length) fire(grown[(Math.random() * grown.length) | 0]);
+      nextImpulse = 3 + Math.random() * 9;
+    }
+    for (let k = impulses.length - 1; k >= 0; k--) {
+      const im = impulses[k];
+      if ((im.d += im.v * dt) < im.leaf.t1) continue;
+      im.leaf.glow = 1;
+      swayFor(im.tree);
+      onBranch(im.leaf, 1, Q);
+      for (let s = 0; s < 4; s++) spark(Q.x, Q.y - PAD, 1.4, Math.PI * 2, 0, 0.7, im.c);
+      impulses.splice(k, 1);
+    }
+    // con el ratón cerca de una punta, esa sinapsis se dispara
+    if (cursor.power > 0.5) {
+      for (const t of trees) {
+        if (t.g < 0.98) continue;
+        for (const l of t.leaves) {
+          if (l.glow < 0.1 && Math.abs(l.x1 - cursor.x) < 45 && Math.abs(l.y1 - cursor.y) < 45 && Math.random() < 0.06 * dt) fire(t, l);
+        }
+      }
+    }
     stepSparks(dt);
   };
 
@@ -1811,11 +1883,12 @@ function initTimeline() {
       cancelAnimationFrame(rafId);
       rafId = 0;
       alive = 0;
-      waves.length = bolts.length = pulses.length = 0;
+      waves.length = bolts.length = pulses.length = impulses.length = 0;
       ctx.clearRect(0, 0, w, h);
       // fuera de pantalla se salta directamente al estado final, sin espectáculo
       charge.p = charge.target;
       apply(true);
+      for (const t of trees) t.g = charge.p * total >= t.at - 1 ? 1 : 0;
     }
   }).observe(timeline);
 }
