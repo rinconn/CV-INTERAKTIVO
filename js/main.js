@@ -1650,9 +1650,12 @@ function initTimeline() {
   };
 
   // Al llegar un impulso a una tarjeta, su borde da un chispazo
-  const zapTimers = [];
+  // (como mucho uno cada 700 ms por tarjeta: cada chispazo repinta la tarjeta entera)
+  const zapTimers = [], zapAt = [];
   const zap = (j) => {
-    const card = cards[j];
+    const card = cards[j], now = performance.now();
+    if (now - (zapAt[j] || 0) < 700) return;
+    zapAt[j] = now;
     card.classList.add("is-zap");
     clearTimeout(zapTimers[j]);
     zapTimers[j] = setTimeout(() => card.classList.remove("is-zap"), 120);
@@ -1732,12 +1735,14 @@ function initTimeline() {
 
   const ignite = (i) => {
     const p = points[i];
+    const first = !shown.has(i);
     flash[i] = 1;
     recall = 1; // el cerebro "recuerda" esta etapa
     remember(i);
-    for (let k = 0; k < 90; k++) spark(p.x, p.y, 7, Math.PI * 2, 0, 1.25);
-    gsap.fromTo(timeline, { x: 0 }, { keyframes: { x: [0, -6, 5, -3, 2, 0] }, duration: 0.35, ease: "none" }); // sacudida
-    wave(p.x, p.y + PAD, 190);
+    for (let k = 0; k < (first ? 90 : 30); k++) spark(p.x, p.y, 7, Math.PI * 2, 0, 1.25);
+    // sacudida solo la primera vez: si se vuelve a encender no tiembla todo otra vez
+    if (first) gsap.fromTo(timeline, { x: 0 }, { keyframes: { x: [0, -6, 5, -3, 2, 0] }, duration: 0.35, ease: "none" });
+    wave(p.x, p.y + PAD, first ? 190 : 90);
     for (let k = 0; k < 2; k++) bolt(p.x, p.y, p.edge, p.y + (Math.random() - 0.5) * 60, 22 + k * 6, 2);
     reveal(i);
   };
@@ -1746,8 +1751,11 @@ function initTimeline() {
     const p = charge.p;
     // Al bajar se enciende (con todo el espectáculo); al volver a subir se apaga en silencio
     checkpoints.forEach((c, i) => {
-      const on = p >= stops[i] - 0.001;
-      if (on === c.classList.contains("is-active")) return;
+      // se enciende al llegar, pero solo se apaga al subir un poco más: así no parpadea
+      // (ni explota una y otra vez) si el scroll se queda justo en el umbral
+      const was = c.classList.contains("is-active");
+      const on = was ? p >= stops[i] - 0.015 : p >= stops[i] - 0.001;
+      if (on === was) return;
       c.classList.toggle("is-active", on);
       if (!on) return;
       if (!silent && p > lastP) ignite(i);
@@ -2823,6 +2831,10 @@ function initContact() {
   }));
   const flock = [];
   let nextFlock = 2;
+  // de dónde nacen las ondas de power (lado derecho; se reflejan al azar): muñeca, hombro, cabeza y punta del ala
+  const SURGE_FROM = [WRIST, SHOULDER, [0.03, -0.06], [0.9, -0.36]];
+  const surges = [];
+  let nextSurge = 4;
 
   /* ----- Medidas ----- */
   let W = 0, H = 0, S = 1, cx = 0, cy = 0, hx = 0, hy = 0;
@@ -2887,20 +2899,21 @@ function initContact() {
   };
 
   // ultrasonidos: un chorro de partículas de sonido que sale de la boca; las que dan en un enlace rebotan
-  // y vuelven a la boca, las demás se pierden
-  const emit = (dir, spread, n, full = false, ox = hx, oy = hy) => {
+  // y vuelven a la boca, las demás se pierden. Si va dirigido a un enlace (aim), atraviesa los demás
+  // (en móvil están en columna y el primero se lo comería todo)
+  const emit = (dir, spread, n, full = false, ox = hx, oy = hy, aim = null) => {
     const burst = new Set();
     for (let i = 0; i < n; i++) {
       const a = full ? (i / n) * Math.PI * 2 + Math.random() * 0.02 : dir + (Math.random() * 2 - 1) * spread;
       const v = 7 + Math.random() * 4;
-      sonic.push({ x: ox, y: oy, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, back: false, burst });
+      sonic.push({ x: ox, y: oy, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, back: false, burst, aim });
     }
     eyeFlash = Math.max(eyeFlash, 0.6);
     lunge = Math.max(lunge, full ? 1 : 0.5); // cada chillido es una embestida
     flapBig = Math.max(flapBig, full ? 1 : 0.4);
     if (full) shake = Math.max(shake, 6);
   };
-  const emitTo = (x, y, spread, n) => emit(Math.atan2(y - hy, x - hx), spread, n);
+  const emitTo = (x, y, spread, n, aim = null) => emit(Math.atan2(y - hy, x - hx), spread, n, false, hx, hy, aim);
 
   const ping = (t) => {
     t.el.classList.remove("is-ping");
@@ -2939,7 +2952,7 @@ function initContact() {
         // primer chillido: en todas direcciones
         firstRing = true;
         status("&gt; emitiendo ultrasonidos…");
-        emit(0, Math.PI, mobile ? 160 : 240, true);
+        emit(0, Math.PI, mobile ? 70 : 110, true);
         nextPing = 3.5;
       }
     }
@@ -2958,12 +2971,14 @@ function initContact() {
     if (firstRing && motion) {
       nextPing -= dt;
       if (nextPing <= 0) {
-        if (locked) { emitTo(locked.x, locked.y, 0.12, 26); nextPing = 0.45; }
-        else if (cursor.in) { emitTo(cursor.x, cursor.y, 0.35, 60); nextPing = 2; }
+        if (locked) { emitTo(locked.x, locked.y, 0.1, 10, locked); nextPing = 0.8; }
+        else if (cursor.in) { emitTo(cursor.x, cursor.y, 0.3, 22); nextPing = 2.6; }
         else {
-          const t = targets[(Math.random() * targets.length) | 0];
-          emitTo(t.x, t.y, 0.3, 70);
-          nextPing = 3 + Math.random() * 1.5;
+          // primero va a por los que aún no ha encontrado, y más seguido
+          const lost = targets.filter((t) => !t.found), pool = lost.length ? lost : targets;
+          const t = pool[(Math.random() * pool.length) | 0];
+          emitTo(t.x, t.y, 0.2, 26, t);
+          nextPing = lost.length ? 1.2 : 4.5 + Math.random() * 2;
         }
       }
       if (locked) status(`&gt; fijado · <b>${locked.name}</b> · ${(Math.hypot(locked.x - hx, locked.y - hy) / 100).toFixed(1)} m`);
@@ -2978,7 +2993,7 @@ function initContact() {
         p.y += p.vy * f;
         p.life -= 0.007 * f;
         for (const t of targets) {
-          if (Math.abs(p.x - t.x) > t.w / 2 + 12 || Math.abs(p.y - t.y) > t.h / 2 + 10) continue;
+          if ((p.aim && p.aim !== t) || Math.abs(p.x - t.x) > t.w / 2 + 12 || Math.abs(p.y - t.y) > t.h / 2 + 10) continue;
           if (!p.burst.has(t)) { p.burst.add(t); ping(t); }
           // rebota: casi todas vuelven a la boca, alguna sale despedida
           if (Math.random() < 0.8) { p.back = true; p.life = 1; }
@@ -3052,6 +3067,15 @@ function initContact() {
     const sp = 0.16 * dt * pump; // en unidades del ala
     const damp = Math.pow(0.86, f), iceDecay = Math.pow(0.95, f), pull = 0.05 * f;
     const blood = motion && introT >= INTRO, forming = introT < INTRO + 1.2;
+    // power: de vez en cuando una onda de energía (el aqua del ratón) recorre parte del cuerpo
+    nextSurge -= dt;
+    if (blood && nextSurge <= 0) {
+      nextSurge = 3 + Math.random() * 3;
+      const [ox, oy] = SURGE_FROM[(Math.random() * SURGE_FROM.length) | 0];
+      const side = Math.random() < 0.5 ? -1 : 1;
+      surges.push({ x: ox * side, y: oy, r: 0, max: 0.5 + Math.random() * 0.5 });
+    }
+    for (let k = surges.length - 1; k >= 0; k--) if ((surges[k].r += dt * 0.75) > surges[k].max) surges.splice(k, 1);
     for (const p of parts) {
       if (p.kind === 2 && blood) {
         p.ang += (Math.random() - 0.5) * 0.9 * f;
@@ -3090,6 +3114,11 @@ function initContact() {
       p.ice *= iceDecay;
       const o2 = p.ox * p.ox + p.oy * p.oy; // la raíz solo si se ha movido algo
       if (o2 > 0.01) p.ice = Math.max(p.ice, Math.min(1, Math.sqrt(o2) / 30));
+      for (const s of surges) {
+        // un frente fino que se apaga según se aleja de donde nace
+        const band = 1 - Math.abs(Math.hypot(p.ux - s.x, p.uy - s.y) - s.r) / 0.045;
+        if (band > 0) p.ice = Math.max(p.ice, band * 0.85 * (1 - s.r / s.max));
+      }
       p.X = X + p.ox;
       p.Y = Y + p.oy;
     }
@@ -3266,14 +3295,14 @@ function initContact() {
       sparks.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, red: Math.random() < 0.35 });
     }
     if (!firstRing) return;
-    emit(0, Math.PI, mobile ? 140 : 220, true, x, y);
-    emitTo(x, y, 0.25, 50);
+    emit(0, Math.PI, mobile ? 70 : 110, true, x, y);
+    emitTo(x, y, 0.25, 20);
   });
   // en táctil: un toque es un chillido hacia ese punto y aparta las chispas un momento
   stage.addEventListener("pointerdown", (e) => {
     if (e.pointerType === "mouse" || !firstRing) return;
     const [x, y] = local(e);
-    emitTo(x, y, 0.35, 60);
+    emitTo(x, y, 0.3, 22);
     for (const p of parts) {
       const dx = p.X - x, dy = p.Y - y, d = Math.hypot(dx, dy);
       if (d < 80 && d > 1) { p.vx += (dx / d) * 8; p.vy += (dy / d) * 8; }

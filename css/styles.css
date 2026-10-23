@@ -2636,6 +2636,28 @@ ul {
   color: var(--text);
 }
 
+/* icono: apagado en la niebla, se enciende cuando la onda lo encuentra y brilla al pasar por encima */
+.echo__icon {
+  width: 1.6rem;
+  height: 1.6rem;
+  margin-bottom: 0.3rem;
+  fill: var(--text-muted);
+  opacity: 0.35;
+  transition: fill 0.4s, opacity 0.6s, transform 0.45s var(--ease), filter 0.4s;
+}
+
+.echo__target.is-found .echo__icon {
+  fill: var(--accent-2);
+  opacity: 0.85;
+}
+
+.echo__link:hover .echo__icon,
+.echo__link:focus-visible .echo__icon {
+  opacity: 1;
+  transform: translateY(-3px);
+  filter: drop-shadow(0 0 8px rgba(33, 230, 193, 0.6));
+}
+
 .echo__label {
   position: relative;
   font-family: var(--font-display);
@@ -2728,19 +2750,14 @@ ul {
   width: 4rem;
 }
 
-/* cuando le llega una onda: sacudida y la letra se parte en rojo y hielo */
+/* cuando le llega una onda: la letra se enciende un instante y se apaga despacio, sin sacudidas */
 .echo__target.is-ping .echo__label {
-  animation: echo-ping 0.55s steps(1);
+  animation: echo-ping 0.9s var(--ease);
 }
 
 @keyframes echo-ping {
-  0% { translate: -4px 1px; text-shadow: 4px 0 #21e6c1, -4px 0 #21e6c1; color: #fff; }
-  15% { translate: 5px -2px; text-shadow: -5px 0 #21e6c1, 5px 0 #21e6c1; }
-  30% { translate: -3px 0; text-shadow: 3px 1px #21e6c1, -3px -1px #21e6c1; clip-path: inset(10% 0 40% 0); }
-  45% { translate: 2px 1px; text-shadow: -2px 0 #21e6c1, 2px 0 #21e6c1; clip-path: inset(45% 0 5% 0); }
-  60% { translate: -1px 0; text-shadow: 1px 0 #21e6c1, -1px 0 #21e6c1; clip-path: none; }
-  80% { translate: 0 0; text-shadow: 0 0 22px rgba(33, 230, 193, 0.7); }
-  100% { translate: 0 0; text-shadow: none; }
+  0% { color: #fff; text-shadow: 0 0 18px rgba(33, 230, 193, 0.75); }
+  100% { text-shadow: 0 0 0 rgba(33, 230, 193, 0); }
 }
 
 .echo__copy {
