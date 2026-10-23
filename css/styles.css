@@ -481,6 +481,10 @@ ul {
   object-fit: cover;
   object-position: center;
 }
+/* el murciélago viene sobre negro: el fondo del círculo también */
+.avatar__img--bat {
+  background: #000;
+}
 
 .avatar__img--contain {
   object-fit: contain;
@@ -1788,11 +1792,11 @@ ul {
 /* =========================================================
    TRAYECTORIA: un hilo de energía neón que baja haciendo bucles
    El hilo, sus pulsos, órbitas, rayos y chispas se pintan en canvas (.timeline__fx);
-   aquí van los nodos y las tarjetas. Paleta: ámbar (experiencia), hielo (formación) y brasa (proyectos)
+   aquí van los nodos y las tarjetas. Paleta "fuego y hielo": ámbar (experiencia), hielo azulado (formación) y brasa (proyectos)
    ========================================================= */
 #trayectoria {
   --tl-main: #ffa31a;
-  --tl-spark: #96d6ff;
+  --tl-spark: #50b4ff;
   --tl-alt: #ff542e;
   --tl-next: #3dffa2;
   --tl-mid: #ffd070;

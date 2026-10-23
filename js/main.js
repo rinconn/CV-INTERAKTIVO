@@ -1080,16 +1080,9 @@ function initTimeline() {
   const STEPS = 90;      // muestras por tramo entre dos nodos
   const BOOT = 300;      // fotogramas (a 60 fps) que tarda el cerebro en arrancar
 
-  // Paletas. main: experiencia y el hilo · spark: formación y la electricidad (rayos, sinapsis, impulsos)
-  // alt: proyectos · next: la PR · mid: tono intermedio del hilo y de la niebla
-  const PALETTES = {
-    fuego: { label: "Fuego y hielo", main: [255, 163, 26], spark: [150, 214, 255], alt: [255, 84, 46], next: [61, 255, 162], mid: [255, 208, 112] },
-    ambar: { label: "Ámbar puro", main: [255, 163, 26], spark: [255, 234, 186], alt: [214, 92, 34], next: [61, 255, 162], mid: [255, 198, 92] },
-    violeta: { label: "Ámbar y violeta", main: [255, 163, 26], spark: [178, 146, 255], alt: [255, 92, 72], next: [61, 255, 162], mid: [255, 206, 120] },
-    bio: { label: "Bioluminiscente", main: [52, 232, 158], spark: [206, 255, 128], alt: [255, 163, 26], next: [140, 210, 255], mid: [130, 255, 196] },
-  };
-  const PALETTE_NAME = new URLSearchParams(location.search).get("paleta");
-  const PALETTE = PALETTES[PALETTE_NAME] || PALETTES.fuego;
+  // Paleta "fuego y hielo": el hilo es fuego (ámbar → oro → brasa) y la electricidad es hielo azulado.
+  // main: experiencia y el hilo · spark: formación, rayos, sinapsis e impulsos · alt: proyectos · next: la PR
+  const PALETTE = { main: [255, 163, 26], spark: [80, 180, 255], alt: [255, 84, 46], next: [61, 255, 162], mid: [255, 208, 112] };
   const KIND_COLOR = { work: "main", edu: "spark", proj: "alt", next: "next" };
   const FLOW = [PALETTE.main, PALETTE.mid, PALETTE.alt, PALETTE.mid]; // ciclo de color a lo largo del hilo
   const rgb = ([r, g, b]) => `rgb(${r}, ${g}, ${b})`;
@@ -1097,24 +1090,6 @@ function initTimeline() {
   if (section) {
     ["main", "spark", "alt", "next", "mid"].forEach((k) => section.style.setProperty(`--tl-${k}`, rgb(PALETTE[k])));
     section.style.setProperty("--neb", rgb(PALETTE.main));
-  }
-  // Solo en local: botones para comparar paletas (en la web publicada no aparecen)
-  if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
-    const bar = document.createElement("div");
-    bar.style.cssText = "position:fixed;left:12px;bottom:12px;z-index:9999;display:flex;flex-wrap:wrap;gap:6px;font:12px/1 'JetBrains Mono',monospace";
-    Object.entries(PALETTES).forEach(([name, p]) => {
-      const b = document.createElement("button");
-      const on = p === PALETTE;
-      b.style.cssText = `display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:6px;cursor:pointer;color:#eee;background:${on ? "#2a2a2e" : "#141417"};border:1px solid ${on ? "#fff" : "#333"}`;
-      b.innerHTML = ["main", "spark", "alt"].map((k) => `<i style="width:10px;height:10px;border-radius:50%;background:${rgb(p[k])}"></i>`).join("") + p.label;
-      b.addEventListener("click", () => {
-        const url = new URL(location.href);
-        url.searchParams.set("paleta", name);
-        location.href = url;
-      });
-      bar.append(b);
-    });
-    document.body.append(bar);
   }
   // 64 tonos precalculados del ciclo: así no se construyen strings de color en cada trazo
   const FLOW_STEPS = 64;
@@ -2248,7 +2223,7 @@ function initTimeline() {
       ctx.globalAlpha = a * 0.45;
       ctx.lineWidth = b.width * 4;
       ctx.stroke();
-      ctx.strokeStyle = "#f2fbff";
+      ctx.strokeStyle = "#cde8ff"; // núcleo del rayo: blanco azulado
       ctx.globalAlpha = a;
       ctx.lineWidth = b.width;
       ctx.stroke();
