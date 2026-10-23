@@ -1058,23 +1058,27 @@ function initActiveLinks() {
   sections.forEach((s) => observer.observe(s));
 }
 
-/* ---------- Trayectoria: un hilo de energía neón que baja haciendo bucles y enciende cada nodo ---------- */
-// Todo va en un canvas: el hilo (con una doble hélice enrollada), los pulsos que lo recorren,
-// la cabeza de la carga, las órbitas de los nodos, ondas cromáticas, rayos, chispas y polvo flotante.
-// El hilo está vivo: ondula, se agita con la velocidad del scroll y se aparta del ratón
+/* ---------- Trayectoria: un cerebro que recuerda y un hilo de energía que baja encendiendo cada recuerdo ---------- */
+// Todo se pinta en un canvas del tamaño de la pantalla (pegado con sticky) que solo dibuja lo visible.
+// Arriba, un cerebro de neuronas que "arranca" y va recordando; de su tronco baja el hilo haciendo bucles
+// hasta cada nodo, y de cada nodo salen unas pocas dendritas que conectan con las tarjetas vecinas
 function initTimeline() {
   const timeline = document.getElementById("timeline");
   if (!timeline) return;
-  const canvas = timeline.querySelector(".timeline__fx");
+  const fx = timeline.querySelector(".timeline__fx");
+  const canvas = fx.querySelector("canvas");
   const ctx = canvas.getContext("2d");
+  const bootLabel = timeline.querySelector(".timeline__boot");
   const checkpoints = [...timeline.querySelectorAll(".checkpoint")];
   const nodes = checkpoints.map((c) => c.querySelector(".checkpoint__node"));
   const cards = checkpoints.map((c) => c.querySelector(".checkpoint__card"));
+  const section = timeline.closest("section");
 
-  const PAD = 100;       // el canvas sobresale 100 px por arriba y por abajo (ver CSS)
-  const MAX = 900;       // tope de chispas vivas
+  const PAD = 100;       // la capa del canvas sobresale 100 px por arriba y por abajo (ver CSS)
+  const MAX = 450;       // tope de chispas vivas
   const START = "62%";   // altura de la pantalla a la que va la cabeza de la carga
   const STEPS = 90;      // muestras por tramo entre dos nodos
+  const BOOT = 170;      // fotogramas (a 60 fps) que tarda el cerebro en arrancar
 
   // Paleta neón: cian → rosa → rojo (y violeta para el último nodo)
   const PALETTE = { cyan: [34, 225, 255], pink: [255, 62, 165], red: [255, 51, 85], violet: [155, 92, 255] };
@@ -1089,6 +1093,7 @@ function initTimeline() {
     return rgb(a.map((v, j) => Math.round(v + (b[j] - v) * f)));
   });
   const flowAt = (u) => flowColors[((Math.floor(u * FLOW_STEPS) % FLOW_STEPS) + FLOW_STEPS) % FLOW_STEPS];
+  const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
   // Posición sin transforms (las tarjetas entran desplazadas): se suman los offset hasta la línea
   const offsetIn = (el) => {
@@ -1098,10 +1103,13 @@ function initTimeline() {
   };
 
   /* ----- Geometría: tramos entre nodos con forma de trocoide (un bucle en medio de cada uno) ----- */
-  let w = 0, h = 0, mobile = false, total = 1;
+  // Coordenadas: x e y de los nodos y tramos van respecto a la línea; al pintar se suma PAD
+  let w = 0, H = 0, ch = 0, dpr = 1, mobile = false, total = 1;
+  let viewTop = 0;    // qué franja de la capa (de alto H) está cubriendo el canvas ahora mismo
   let points = [];    // centro de cada nodo, color y borde de su tarjeta más cercano al hilo
   let segs = [];      // tramos: parámetros de la curva + tabla de longitudes para recorrerla a velocidad constante
   let stops = [];     // 0 → 1: en qué punto de la carga se enciende cada nodo
+
   // Punto del tramo en t ∈ [0, 1] sin ondulación. θ va de -π a π: en los extremos la curva sale
   // vertical del nodo y en el centro (b > a) da la vuelta sobre sí misma → bucle
   const basePoint = (s, t, out) => {
@@ -1152,17 +1160,20 @@ function initTimeline() {
     }
     total = Math.max(1, acc);
     stops = stops.map((v) => v / total);
+
     const top = points[0].y, bottom = points[points.length - 1].y;
     timeline.style.setProperty("--track-top", `${top}px`);
     timeline.style.setProperty("--track-h", `${bottom - top}px`);
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-    w = canvas.clientWidth;
-    h = canvas.clientHeight;
+    // El canvas solo mide lo que la pantalla (+ margen en móvil para cuando se esconde la barra del navegador)
+    dpr = Math.min(window.devicePixelRatio || 1, mobile ? 1.25 : 1.5);
+    w = fx.clientWidth;
+    H = fx.clientHeight;
+    ch = Math.min(H, window.innerHeight + (mobile ? 120 : 0));
+    canvas.style.height = `${ch}px`;
     canvas.width = Math.round(w * dpr);
-    canvas.height = Math.round(h * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (animate) { seedDust(); treesDirty = true; } // sin animaciones no hay polvo ni dendritas (ni existen sus listas)
+    canvas.height = Math.round(ch * dpr);
+    if (animate) { seedDust(); seedBrain(); seedDendrites(); } // sin animaciones no existen (ni hacen falta)
   };
 
   // Sin animaciones: línea recta cargada, nodos encendidos y tarjetas visibles desde el principio
@@ -1171,6 +1182,7 @@ function initTimeline() {
     new ResizeObserver(measure).observe(timeline);
     timeline.classList.add("is-static");
     checkpoints.forEach((c) => c.classList.add("is-active"));
+    if (bootLabel) bootLabel.textContent = `> ${checkpoints.length} recuerdos cargados`;
     return;
   }
 
@@ -1188,12 +1200,15 @@ function initTimeline() {
     x.fillRect(0, 0, 64, 64);
     return c;
   };
-  const SPRITES = [PALETTE.cyan, PALETTE.pink, PALETTE.red, PALETTE.violet].map(makeSprite);
-  const spriteOf = (color) => SPRITES[[PALETTE.cyan, PALETTE.pink, PALETTE.red, PALETTE.violet].indexOf(color)] || SPRITES[0];
+  const COLORS = [PALETTE.cyan, PALETTE.pink, PALETTE.red, PALETTE.violet];
+  const SPRITES = COLORS.map(makeSprite);
+  const spriteOf = (color) => SPRITES[COLORS.indexOf(color)] || SPRITES[0];
   const glow = (spr, x, y, size, alpha) => {
     ctx.globalAlpha = alpha;
     ctx.drawImage(spr, x - size / 2, y - size / 2, size, size);
   };
+  // ¿Esta altura (ya con PAD) cae en la franja visible? Lo que no, ni se pinta
+  const visible = (y, margin = 60) => y > viewTop - margin && y < viewTop + ch + margin;
 
   /* ----- Chispas: arrays planos, sin objetos que recoger cada fotograma ----- */
   const px = new Float32Array(MAX), py = new Float32Array(MAX);
@@ -1202,6 +1217,7 @@ function initTimeline() {
   const tint = new Uint8Array(MAX);
   let alive = 0;
 
+  // (x, y) en coordenadas de la línea, sin PAD
   const spark = (x, y, speed, spread = Math.PI * 2, dir = 0, big = 1, color = -1) => {
     if (alive >= MAX) return;
     const i = alive++;
@@ -1210,7 +1226,7 @@ function initTimeline() {
     px[i] = x; py[i] = y + PAD;
     vx[i] = Math.cos(a) * s;
     vy[i] = Math.sin(a) * s;
-    ttl[i] = life[i] = 35 + Math.random() * 70; // en fotogramas de 60 fps
+    ttl[i] = life[i] = 35 + Math.random() * 60; // en fotogramas de 60 fps
     size[i] = (4 + Math.random() * 9) * big;
     tint[i] = color >= 0 ? color : (Math.random() * 3) | 0; // por defecto cian, rosa o rojo al azar
   };
@@ -1234,14 +1250,14 @@ function initTimeline() {
     }
   };
 
-  /* ----- Polvo flotante alrededor del hilo: sube despacio y parpadea ----- */
+  /* ----- Polvo: va pegado a la pantalla (no a la línea), así que con pocas motas basta ----- */
   let dust = [];
   function seedDust() {
-    const n = mobile ? 30 : 95;
+    const n = mobile ? 14 : 36;
     const cx = points[0].x;
     dust = Array.from({ length: n }, () => ({
-      x: mobile ? Math.random() * 90 : cx + (Math.random() - 0.5) * 380,
-      y: Math.random() * h,
+      x: mobile ? Math.random() * 90 : cx + (Math.random() - 0.5) * 420,
+      y: Math.random() * ch,
       v: 0.15 + Math.random() * 0.35,
       s: 4 + Math.random() * 8,
       ph: Math.random() * 6.28,
@@ -1249,101 +1265,208 @@ function initTimeline() {
     }));
   }
 
-  /* ----- Dendritas: todo el hilo es una neurona que se ramifica según le llega la carga ----- */
-  // Los nodos echan los árboles grandes (hacia el lado libre) y a lo largo del hilo brotan ramas más
-  // pequeñas a ambos lados. Semilla fija: siempre salen iguales. Esquivan las tarjetas
+  /* ----- El cerebro: neuronas dentro de la silueta de un cerebro visto de lado, unidas a sus vecinas ----- */
+  // Coordenadas del cerebro ya con PAD. Arranca de abajo (el tronco) hacia arriba: "recuerda"
+  let brain = null;
+  let boot = -1;          // -1: aún no se ha visto · 0 → 1: arrancando · 1: listo
+  let stemCharge = 0;     // el tronco se carga cuando el cerebro termina de arrancar
+  let recall = 0;         // sube cuando se enciende un nodo: el cerebro se agita un momento
+  let lastPct = -1;
+  const synapses = [];
+  const stemPulses = [];
+
+  function seedBrain() {
+    let seed = 7;
+    const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const W = mobile ? 150 : 330, Hb = W * 0.68;
+    const cx = mobile ? Math.max(points[0].x + 22, W / 2 + 4) : points[0].x;
+    const cy = PAD + (mobile ? 30 : 46) + Hb / 2;
+
+    // perfil de un cerebro visto de lado (mira a la izquierda), en coordenadas normalizadas u, v ∈ [-1, 1]:
+    // lóbulo frontal, coronilla, occipital, cerebelo, salida del tronco y lóbulo temporal
+    const PROFILE = [
+      [-0.78, 0.16], [-0.95, -0.12], [-0.86, -0.47], [-0.6, -0.76], [-0.24, -0.93], [0.16, -0.91],
+      [0.52, -0.75], [0.82, -0.46], [0.96, -0.1], [0.9, 0.2], [0.84, 0.32], [0.88, 0.5], [0.72, 0.68],
+      [0.46, 0.7], [0.3, 0.58], [0.2, 0.44], [0.02, 0.46], [-0.26, 0.52], [-0.52, 0.44], [-0.64, 0.3], [-0.6, 0.2],
+    ];
+    // se suaviza con Catmull-Rom: el contorno queda redondeado
+    const shape = [];
+    for (let k = 0; k < PROFILE.length; k++) {
+      const p0 = PROFILE[(k - 1 + PROFILE.length) % PROFILE.length], p1 = PROFILE[k];
+      const p2 = PROFILE[(k + 1) % PROFILE.length], p3 = PROFILE[(k + 2) % PROFILE.length];
+      for (let s = 0; s < 6; s++) {
+        const t = s / 6, t2 = t * t, t3 = t2 * t;
+        shape.push([0, 1].map((j) => 0.5 * (2 * p1[j] + (-p0[j] + p2[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2 + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * t3)));
+      }
+    }
+    const inside = (u, v) => {
+      let on = false;
+      for (let i = 0, j = shape.length - 1; i < shape.length; j = i++) {
+        const [xi, yi] = shape[i], [xj, yj] = shape[j];
+        if (yi > v !== yj > v && u < ((xj - xi) * (v - yi)) / (yj - yi) + xi) on = !on;
+      }
+      return on;
+    };
+    const nearEdge = (u, v) => shape.some(([x, y]) => (x - u) ** 2 + (y - v) ** 2 < 0.018);
+
+    const N = mobile ? 34 : 80;
+    const n = [];
+    let guard = 0;
+    while (n.length < N && guard++ < 20000) {
+      const u = rand() * 2 - 1, v = rand() * 2 - 1;
+      if (!inside(u, v)) continue;
+      // la mitad en el borde (marca la silueta) y la otra mitad por dentro
+      if (!nearEdge(u, v) && n.length % 2 === 0) continue;
+      const x = cx + (u * W) / 2, y = cy + (v * Hb) / 2;
+      if (n.some((m) => Math.hypot(m.x - x, m.y - y) < W * 0.055)) continue;
+      n.push({ x, y, ph: rand() * 6.28, c: u < -0.3 ? 0 : u < 0.3 ? 1 : 2, r: 7 + rand() * 6, flash: 0, X: x, Y: y });
+    }
+    // orden de arranque: desde el tronco hacia fuera
+    const sx = cx + W * 0.11, sy = cy + Hb * 0.24;
+    const far = Math.max(...n.map((m) => Math.hypot(m.x - sx, m.y - sy)));
+    n.forEach((m) => (m.order = clamp01(Math.hypot(m.x - sx, m.y - sy) / far * 0.88 + rand() * 0.1)));
+
+    // cada neurona se une a sus 3 vecinas más cercanas
+    const e = [];
+    const seen = new Set();
+    n.forEach((m, a) => {
+      n.map((o, b) => [b, Math.hypot(o.x - m.x, o.y - m.y)])
+        .filter(([b]) => b !== a)
+        .sort((p, q) => p[1] - q[1])
+        .slice(0, 3)
+        .forEach(([b, d]) => {
+          const key = a < b ? `${a}-${b}` : `${b}-${a}`;
+          if (d > W * 0.26 || seen.has(key)) return;
+          seen.add(key);
+          e.push({ a, b, c: n[a].c, from: Math.max(m.order, n[b].order) });
+        });
+    });
+
+    // tronco: del cerebro al primer nodo
+    const p = points[0];
+    const stem = { x0: sx, y0: sy, x1: p.x, y1: p.y + PAD - 14, c1x: sx, c1y: sy + 60, c2x: p.x, c2y: p.y + PAD - 80 };
+    stem.len = Math.hypot(stem.x1 - stem.x0, stem.y1 - stem.y0) * 1.15;
+    const toXY = ([u, v]) => [cx + (u * W) / 2, cy + (v * Hb) / 2];
+    const outline = shape.map(toXY);
+    // surcos: cisura lateral, surco central, separación del cerebelo, circunvoluciones y pliegues del cerebelo
+    const sulci = [
+      [[-0.6, 0.2], [-0.22, 0.08], [0.14, 0.04], [0.46, -0.08]],
+      [[0.06, -0.9], [-0.02, -0.5], [-0.14, -0.06]],
+      [[0.86, 0.3], [0.6, 0.34], [0.32, 0.5]],
+      [[-0.84, -0.22], [-0.6, -0.42], [-0.38, -0.66]],
+      [[0.3, -0.7], [0.52, -0.44], [0.78, -0.2]],
+      [[-0.52, -0.04], [-0.42, -0.24], [-0.22, -0.34]],
+      [[0.42, 0.46], [0.6, 0.44], [0.84, 0.48]],
+      [[0.4, 0.58], [0.6, 0.57], [0.8, 0.62]],
+    ].map((c) => c.map(toXY));
+    brain = { cx, cy, W, Hb, n, e, stem, outline, sulci };
+    synapses.length = stemPulses.length = 0;
+  }
+
+  const stemAt = (t, out) => {
+    const s = brain.stem, u = 1 - t;
+    out.x = u * u * u * s.x0 + 3 * u * u * t * s.c1x + 3 * u * t * t * s.c2x + t * t * t * s.x1;
+    out.y = u * u * u * s.y0 + 3 * u * u * t * s.c1y + 3 * u * t * t * s.c2y + t * t * t * s.y1;
+    return out;
+  };
+
+  /* ----- Dendritas: pocas, y todas conectan algo. Cada nodo tiende una hacia la tarjeta de arriba
+     y otra hacia la de abajo (las dos quedan en su lado libre); acaban en dos sinapsis sobre el borde ----- */
   let trees = [];
-  let treesDirty = false; // measure() solo lo marca: locate() aún no existe la primera vez
   const impulses = [];
   function seedDendrites() {
     const old = trees;
     trees = [];
     impulses.length = 0;
-    const k = mobile ? 0.3 : 1;
-    const margin = mobile ? 4 : 14;
+    if (mobile) return; // en móvil las tarjetas ocupan todo el ancho: no hay hueco
+    let seed = 4211;
+    const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
     const rects = cards.map((c) => {
       const o = offsetIn(c);
-      return { x: o.x - margin, y: o.y - margin, r: o.x + c.offsetWidth + margin, b: o.y + c.offsetHeight + margin };
+      return { x: o.x, y: o.y, r: o.x + c.offsetWidth, b: o.y + c.offsetHeight };
     });
-    const blocked = (x, y) => x < 4 || x > w - 4 || rects.some((r) => x > r.x && x < r.r && y > r.y && y < r.b);
-
-    let seed = 9973;
-    const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-
-    const tree = (x, y, at, color, angles, len, max) => {
-      const br = [];
-      const grow = (x0, y0, ang, l, depth, t0, parent) => {
-        if (br.length > max) return;
-        const x1 = x0 + Math.cos(ang) * l, y1 = y0 + Math.sin(ang) * l;
-        if (blocked(x1, y1)) return;
-        const bend = (rand() - 0.5) * l * 0.45; // las ramas no son rectas
-        const b = {
-          x0, y0, x1, y1, depth, t0, t1: t0 + l, parent, leaf: true, glow: 0,
-          mx: (x0 + x1) / 2 - Math.sin(ang) * bend, my: (y0 + y1) / 2 + Math.cos(ang) * bend,
-        };
-        br.push(b);
-        if (parent) parent.leaf = false;
-        if (depth >= 6 || l < 7 * k + 2) return;
-        const n = rand() < 0.22 ? 3 : rand() < 0.85 ? 2 : 1;
-        for (let j = 0; j < n; j++) {
-          const spread = n === 1 ? (rand() - 0.5) * 0.4 : (j / (n - 1) - 0.5) * (0.75 + rand() * 0.5);
-          grow(x1, y1, ang + spread + (rand() - 0.5) * 0.3, l * (0.66 + rand() * 0.16), depth + 1, b.t1, b);
-        }
+    // rama: curva cuadrática con el control desviado en perpendicular (no son rectas)
+    const branch = (x0, y0, x1, y1, parent, bend, card = -1) => {
+      const len = Math.hypot(x1 - x0, y1 - y0);
+      const nx = -(y1 - y0) / (len || 1), ny = (x1 - x0) / (len || 1);
+      const t0 = parent ? parent.t1 : 0;
+      const b = {
+        x0, y0, x1, y1, mx: (x0 + x1) / 2 + nx * bend, my: (y0 + y1) / 2 + ny * bend,
+        t0, t1: t0 + len * 1.1, parent, leaf: true, glow: 0, card, ph: rand() * 6.28,
+        width: parent ? (card >= 0 ? 1.1 : 1.6) : 2.2,
       };
-      for (const ang of angles) grow(x + Math.cos(ang) * 14 * k, y + Math.sin(ang) * 14 * k, ang, len * (0.8 + rand() * 0.4), 0, 0, null);
-      if (!br.length) return;
-      const prev = old.find((t) => t.at === at);
-      trees.push({
-        at, br, color, ph: rand() * 6.28, g: prev ? prev.g : 0,
-        leaves: br.filter((b) => b.leaf),
-        maxT: Math.max(...br.map((b) => b.t1)),
-      });
+      if (parent) parent.leaf = false;
+      return b;
     };
 
-    // árboles grandes en los nodos (en móvil, hacia el hueco de la izquierda)
     points.forEach((p, i) => {
-      const base = mobile ? Math.PI : p.left ? 0 : Math.PI;
-      const n = mobile ? 2 : 3 + ((rand() * 2) | 0);
-      const angles = Array.from({ length: n }, (_, j) => base + (j / (n - 1) - 0.5) * (mobile ? 2.4 : 1.9) + (rand() - 0.5) * 0.3);
-      tree(p.x, p.y, stops[i] * total, p.color, angles, 92 * k, mobile ? 30 : 80);
+      const side = p.left ? 1 : -1;
+      for (const dirY of [-1, 1]) {
+        const j = i + dirY;
+        if (j < 0 || j >= cards.length) continue;
+        const r = rects[j];
+        const ty = dirY < 0 ? r.b : r.y;                       // borde de abajo de la de arriba / de arriba de la de abajo
+        const tx = (side > 0 ? r.x : r.r) + side * (80 + rand() * 60);
+        const jx = p.x + side * (105 + rand() * 40), jy = p.y + dirY * (12 + rand() * 18);
+        const trunk = branch(p.x + side * 14, p.y, jx, jy, null, dirY * side * (8 + rand() * 12));
+        const kx = jx + (tx - jx) * 0.55 + side * (rand() - 0.5) * 24, ky = jy + (ty - jy) * 0.62;
+        const limb = branch(jx, jy, kx, ky, trunk, side * (rand() - 0.5) * 50);
+        const br = [trunk, limb];
+        for (const off of [-1, 1]) br.push(branch(kx, ky, tx + off * (18 + rand() * 14), ty, limb, side * off * 10, j));
+        // la de arriba crece al encenderse este nodo; la de abajo, cuando aparece la tarjeta de abajo
+        const at = stops[Math.max(i, j)] * total;
+        const prev = old.find((t) => t.i === i && t.j === j);
+        trees.push({
+          i, j, at, br, color: p.color, col: rgb(p.color), spr: spriteOf(p.color), g: prev ? prev.g : 0,
+          leaves: br.filter((b) => b.leaf), maxT: Math.max(...br.map((b) => b.t1)),
+        });
+      }
     });
-
-    // brotes a lo largo del hilo, a ambos lados, cada cierta distancia
-    const tmpP = { x: 0, y: 0 };
-    const gap = mobile ? 70 : 85;
-    for (let d = gap; d < total - 40; d += gap * (0.7 + rand() * 0.6)) {
-      locate(d, loc);
-      basePoint(loc.seg, loc.t, tmpP);
-      const side = rand() < 0.5 ? 0 : Math.PI;
-      const tilt = (rand() - 0.5) * 1.2;
-      tree(tmpP.x, tmpP.y, d, PALETTE[["cyan", "pink", "red"][(rand() * 3) | 0]], [side + tilt, side + tilt + (rand() < 0.5 ? 0.9 : -0.9)], 48 * k, mobile ? 12 : 34);
-    }
   }
 
-  // Lanza un impulso por una dendrita (a una punta concreta o a una al azar)
+  // Punto de una rama en f ∈ [0, 1], con el control meciéndose (los extremos quedan fijos: siguen conectados)
+  const Q = { x: 0, y: 0 };
+  const branchCtrl = (b) => [b.mx + Math.sin(time * 0.025 + b.ph) * 6, b.my + Math.cos(time * 0.021 + b.ph) * 4];
+  const onBranch = (b, f, out) => {
+    const [cx, cy] = branchCtrl(b);
+    const u = 1 - f;
+    out.x = u * u * b.x0 + 2 * u * f * cx + f * f * b.x1;
+    out.y = u * u * b.y0 + 2 * u * f * cy + f * f * b.y1 + PAD;
+    return out;
+  };
+
+  // Impulso por una dendrita hasta una de sus sinapsis (o la indicada)
   const fire = (tree, leaf) => {
-    if (impulses.length > 50 || tree.g < 0.98) return;
+    if (impulses.length > 24 || tree.g < 0.98) return;
     leaf = leaf || tree.leaves[(Math.random() * tree.leaves.length) | 0];
     impulses.push({ tree, leaf, d: 0, v: 4 + Math.random() * 3, c: (Math.random() * 3) | 0 });
+  };
+
+  // Al llegar un impulso a una tarjeta, su borde da un chispazo
+  const zapTimers = [];
+  const zap = (j) => {
+    const card = cards[j];
+    card.classList.add("is-zap");
+    clearTimeout(zapTimers[j]);
+    zapTimers[j] = setTimeout(() => card.classList.remove("is-zap"), 120);
   };
 
   /* ----- Ondas, rayos y pulsos (pocos a la vez: aquí sí valen objetos) ----- */
   const waves = [];
   const bolts = [];
   const pulses = [];
-  let nextPulse = 0;
-  let nextImpulse = 0;
+  let nextPulse = 0, nextImpulse = 0, nextSynapse = 0, nextStem = 0;
 
-  // Onda cromática: tres anillos (cian, rosa, rojo) algo desfasados
+  // Onda cromática: tres anillos (cian, rosa, rojo) algo desfasados. (x, y) ya con PAD
   const wave = (x, y, max = 120) => {
-    for (let k = 0; k < 3; k++) waves.push({ x, y: y + PAD, t: -k * 4, max: max * (1 - k * 0.12), c: k });
+    for (let k = 0; k < 3; k++) waves.push({ x, y, t: -k * 4, max: max * (1 - k * 0.12), c: k });
   };
 
-  // Rayo quebrado por desplazamiento del punto medio: se genera una vez y se desvanece
+  // Rayo quebrado por desplazamiento del punto medio: se genera una vez y se desvanece (sin PAD)
   const bolt = (x1, y1, x2, y2, ttl = 20, width = 1.6, color = PALETTE.cyan) => {
     let pts = [[x1, y1 + PAD], [x2, y2 + PAD]];
     let off = Math.hypot(x2 - x1, y2 - y1) * 0.25;
-    for (let k = 0; k < 5; k++) {
+    for (let k = 0; k < 4; k++) {
       const next = [pts[0]];
       for (let i = 1; i < pts.length; i++) {
         const [ax, ay] = pts[i - 1], [bx, by] = pts[i];
@@ -1365,6 +1488,7 @@ function initTimeline() {
   const shown = new Set();
   const hovered = new Set();
   const cursor = { x: 0, y: 0, active: false, power: 0 };
+  let fxRect = fx.getBoundingClientRect();
 
   // Texto que se "descifra": caracteres aleatorios que van fijándose de izquierda a derecha
   const GLYPHS = "!<>-_\\/[]{}=+*^?#01";
@@ -1402,10 +1526,11 @@ function initTimeline() {
   const ignite = (i) => {
     const p = points[i];
     flash[i] = 1;
-    for (let k = 0; k < 160; k++) spark(p.x, p.y, 7.5, Math.PI * 2, 0, 1.25);
-    gsap.fromTo(timeline, { x: 0 }, { keyframes: { x: [0, -7, 6, -4, 3, -1, 0] }, duration: 0.4, ease: "none" }); // sacudida
-    wave(p.x, p.y, 190);
-    for (let k = 0; k < 3; k++) bolt(p.x, p.y, p.edge, p.y + (Math.random() - 0.5) * 60, 22 + k * 6, 2, p.color);
+    recall = 1; // el cerebro "recuerda" esta etapa
+    for (let k = 0; k < 90; k++) spark(p.x, p.y, 7, Math.PI * 2, 0, 1.25);
+    gsap.fromTo(timeline, { x: 0 }, { keyframes: { x: [0, -6, 5, -3, 2, 0] }, duration: 0.35, ease: "none" }); // sacudida
+    wave(p.x, p.y + PAD, 190);
+    for (let k = 0; k < 2; k++) bolt(p.x, p.y, p.edge, p.y + (Math.random() - 0.5) * 60, 22 + k * 6, 2, p.color);
     reveal(i);
   };
 
@@ -1428,8 +1553,6 @@ function initTimeline() {
     if (section && section.style.getPropertyValue("--neb") !== neb) section.style.setProperty("--neb", neb);
   };
 
-  const section = timeline.closest("section");
-
   // El botón de la pull request: al pasar el ratón se "descifra" en el comando de merge
   timeline.querySelectorAll("[data-hover]").forEach((el) => {
     const label = el.textContent;
@@ -1451,12 +1574,13 @@ function initTimeline() {
     onRefresh: (self) => (charge.target = self.progress),
   });
   new ResizeObserver(() => { measure(); ScrollTrigger.refresh(); }).observe(timeline);
+  // si solo cambia el alto de la ventana (la barra del móvil no cuenta), el canvas se ajusta
+  window.addEventListener("resize", () => {
+    if (Math.abs(window.innerHeight + (mobile ? 120 : 0) - ch) > 140) measure();
+  });
 
-  // Ratón: el hilo se aparta de él; en las tarjetas, foco y un rayo desde su nodo
-  let clientX = 0, clientY = 0, rect = null;
-  const invalidate = () => (rect = null);
-  window.addEventListener("scroll", invalidate, { passive: true });
-  window.addEventListener("resize", invalidate);
+  // Ratón: el hilo se aparta de él y las sinapsis cercanas se disparan
+  let clientX = 0, clientY = 0;
   timeline.addEventListener("pointermove", (e) => {
     if (e.pointerType === "touch") return;
     clientX = e.clientX;
@@ -1465,17 +1589,18 @@ function initTimeline() {
   }, { passive: true });
   timeline.addEventListener("pointerleave", () => (cursor.active = false));
 
+  const fine = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
   cards.forEach((card, i) => {
     card.addEventListener("pointerenter", () => {
       hovered.add(i);
       if (!checkpoints[i].classList.contains("is-active")) return;
       const p = points[i];
       bolt(p.x, p.y, p.edge, p.y + (Math.random() - 0.5) * 30, 18, 1.6, p.color);
-      wave(p.x, p.y, 70);
-      for (const t of trees) if (Math.abs(t.at - stops[i] * total) < 1) for (let k = 0; k < 6; k++) fire(t);
+      wave(p.x, p.y + PAD, 70);
+      // las dendritas que llegan a esta tarjeta mandan impulsos
+      for (const t of trees) for (const l of t.leaves) if (l.card === i) fire(t, l);
     });
     // inclinación 3D hacia el ratón (solo con ratón de verdad)
-    const fine = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
     const ease = { duration: 0.6, ease: "power3.out" };
     const rotX = fine && gsap.quickTo(card, "rotationX", ease);
     const rotY = fine && gsap.quickTo(card, "rotationY", ease);
@@ -1527,10 +1652,10 @@ function initTimeline() {
     return out;
   };
 
-  // Buffer de puntos del hilo de este fotograma (se reutiliza)
+  // Buffer de puntos del hilo de este fotograma (se reutiliza). Solo se calculan los tramos visibles
   const MAXPTS = 1200;
   const bx = new Float32Array(MAXPTS), by = new Float32Array(MAXPTS), bs = new Float32Array(MAXPTS);
-  let nPts = 0, headIndex = 0;
+  let nPts = 0, headIndex = -1, headX = 0, headY = 0;
   const tmp = { x: 0, y: 0 };
   const loc = { seg: null, t: 0 };
 
@@ -1538,15 +1663,18 @@ function initTimeline() {
     nPts = 0;
     const head = charge.p * total;
     headIndex = -1;
+    locate(head, loc);
+    livePoint(loc.seg, loc.t, tmp);
+    headX = tmp.x; headY = tmp.y + PAD;
     for (const s of segs) {
+      // tramo entero fuera de la pantalla (con margen para los bucles y el empuje): se salta
+      const y0 = Math.min(s.y0, s.y0 + 2 * Math.PI * s.a) + PAD, y1 = s.y0 + 2 * Math.PI * s.a + PAD;
+      if (y1 < viewTop - 120 || y0 > viewTop + ch + 120) continue;
       for (let k = 0; k <= STEPS; k++) {
-        if (k === 0 && s.i > 0) continue; // el primer punto de cada tramo es el último del anterior
         const dist = s.start + s.lut[k];
         if (headIndex < 0 && dist >= head) {
           // punto exacto de la cabeza, para que el tramo cargado acabe justo ahí
-          locate(head, loc);
-          livePoint(loc.seg, loc.t, tmp);
-          bx[nPts] = tmp.x; by[nPts] = tmp.y + PAD; bs[nPts] = head;
+          bx[nPts] = headX; by[nPts] = headY; bs[nPts] = head;
           headIndex = nPts++;
         }
         livePoint(s, k / STEPS, tmp);
@@ -1554,126 +1682,181 @@ function initTimeline() {
         nPts++;
       }
     }
-    if (headIndex < 0) headIndex = nPts - 1;
+    // la cabeza ya pasó todo lo visible: todo lo visible está cargado
+    if (headIndex < 0) headIndex = nPts > 0 && bs[nPts - 1] < head ? nPts : 0;
   };
 
   /* ----- Dibujo ----- */
-  const strokeRange = (from, to, offset = 0, strand = 0) => {
-    // trazo por trozos de 3 puntos, cada uno con el color del ciclo en ese punto (el color "fluye")
-    for (let i = from; i < to; i += 3) {
-      const end = Math.min(i + 3, to);
-      ctx.strokeStyle = flowAt(bs[i] * 0.0025 - time * 0.012 + strand * 0.25);
-      ctx.beginPath();
-      for (let k = i; k <= end; k++) {
-        let x = bx[k], y = by[k];
-        if (offset) {
-          // hélice: desplazamiento perpendicular al hilo que gira con el tiempo
-          const k0 = Math.max(0, k - 1), k1 = Math.min(nPts - 1, k + 1);
-          let nx = -(by[k1] - by[k0]), ny = bx[k1] - bx[k0];
-          const l = Math.hypot(nx, ny) || 1;
-          const o = offset * Math.sin(bs[k] * 0.07 - time * 0.16 + strand * Math.PI);
-          x += (nx / l) * o; y += (ny / l) * o;
-        }
-        k === i ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  // Degradado vertical que "fluye": sustituye a cambiar de color cada pocos puntos (muchos menos trazos)
+  const flowGradient = (shift = 0) => {
+    const g = ctx.createLinearGradient(0, viewTop, 0, viewTop + ch);
+    for (let k = 0; k <= 4; k++) g.addColorStop(k / 4, flowAt((viewTop + (k * ch) / 4) * 0.0025 - time * 0.012 + shift));
+    return g;
+  };
+
+  const tracePath = (from, to, offset = 0, strand = 0) => {
+    ctx.beginPath();
+    for (let k = from; k < to; k++) {
+      let x = bx[k], y = by[k];
+      if (offset) {
+        // hélice: desplazamiento perpendicular al hilo que gira con el tiempo
+        const k0 = Math.max(0, k - 1), k1 = Math.min(nPts - 1, k + 1);
+        const nx = -(by[k1] - by[k0]), ny = bx[k1] - bx[k0];
+        const l = Math.hypot(nx, ny) || 1;
+        const o = offset * Math.sin(bs[k] * 0.07 - time * 0.16 + strand * Math.PI);
+        x += (nx / l) * o; y += (ny / l) * o;
       }
-      ctx.stroke();
+      k === from ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     }
   };
 
   const drawThread = () => {
     // tramo aún sin cargar: un hilo fino y discontinuo
-    ctx.globalAlpha = 0.16;
-    ctx.lineWidth = 1.2;
-    ctx.strokeStyle = "#fff";
-    ctx.setLineDash([2, 7]);
-    ctx.beginPath();
-    for (let k = headIndex; k < nPts; k++) (k === headIndex ? ctx.moveTo(bx[k], by[k]) : ctx.lineTo(bx[k], by[k]));
-    ctx.stroke();
-    ctx.setLineDash([]);
-
+    if (headIndex < nPts - 1) {
+      ctx.globalAlpha = 0.16;
+      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = "#fff";
+      ctx.setLineDash([2, 7]);
+      tracePath(Math.max(0, headIndex), nPts);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
     if (headIndex < 1) return;
+    const end = Math.min(headIndex + 1, nPts);
     // tramo cargado: halo ancho, núcleo de color, doble hélice y un hilo blanco por dentro
-    ctx.globalAlpha = 0.16; ctx.lineWidth = 22; strokeRange(0, headIndex);
-    ctx.globalAlpha = 0.95; ctx.lineWidth = 3.4; strokeRange(0, headIndex);
-    ctx.globalAlpha = 0.7;  ctx.lineWidth = 1.1;
-    strokeRange(0, headIndex, mobile ? 5 : 11, 0);
-    strokeRange(0, headIndex, mobile ? 5 : 11, 1);
-    ctx.globalAlpha = 0.55; ctx.lineWidth = 0.8; ctx.strokeStyle = "#fff";
-    ctx.beginPath();
-    for (let k = 0; k <= headIndex; k++) (k ? ctx.lineTo(bx[k], by[k]) : ctx.moveTo(bx[k], by[k]));
-    ctx.stroke();
+    const grad = flowGradient();
+    ctx.strokeStyle = grad;
+    tracePath(0, end);
+    ctx.globalAlpha = 0.16; ctx.lineWidth = 20; ctx.stroke();
+    ctx.globalAlpha = 0.95; ctx.lineWidth = 3.2; ctx.stroke();
+    ctx.globalAlpha = 0.55; ctx.lineWidth = 0.8; ctx.strokeStyle = "#fff"; ctx.stroke();
+    ctx.globalAlpha = 0.7; ctx.lineWidth = 1.1;
+    ctx.strokeStyle = flowGradient(0.25);
+    tracePath(0, end, mobile ? 5 : 11, 0); ctx.stroke();
+    ctx.strokeStyle = flowGradient(0.5);
+    tracePath(0, end, mobile ? 5 : 11, 1); ctx.stroke();
 
     // pulsos: cometas de color que recorren el tramo cargado
     for (const pulse of pulses) {
       locate(pulse.s, loc);
-      for (let k = 0; k < 4; k++) {
-        locate(Math.max(0, pulse.s - k * 9), loc);
-        livePoint(loc.seg, loc.t, tmp);
-        glow(SPRITES[pulse.c], tmp.x, tmp.y + PAD, 26 - k * 5, 0.95 - k * 0.2);
+      livePoint(loc.seg, loc.t, tmp);
+      if (!visible(tmp.y + PAD)) continue;
+      for (let k = 0; k < 3; k++) {
+        if (k) { locate(Math.max(0, pulse.s - k * 10), loc); livePoint(loc.seg, loc.t, tmp); }
+        glow(SPRITES[pulse.c], tmp.x, tmp.y + PAD, 26 - k * 6, 0.95 - k * 0.25);
       }
     }
   };
 
-  // Dendritas: cada rama es una curva cuadrática que se dibuja hasta donde ha llegado el crecimiento.
-  // Se mecen un poco (más cuanto más lejos del nodo) y las puntas brillan como sinapsis
-  const sx = new Float32Array(9), sy = new Float32Array(9);
-  const Q = { x: 0, y: 0 };
-  const onBranch = (b, f, out) => {
-    const u = 1 - f;
-    const x0 = b.x0 + sx[b.depth], y0 = b.y0 + sy[b.depth];
-    const x1 = b.x1 + sx[b.depth + 1], y1 = b.y1 + sy[b.depth + 1];
-    const cx = b.mx + (sx[b.depth] + sx[b.depth + 1]) / 2, cy = b.my + (sy[b.depth] + sy[b.depth + 1]) / 2;
-    out.x = u * u * x0 + 2 * u * f * cx + f * f * x1;
-    out.y = u * u * y0 + 2 * u * f * cy + f * f * y1 + PAD;
-    return out;
-  };
-  const swayFor = (tree) => {
-    for (let d = 0; d < sx.length; d++) {
-      sx[d] = Math.sin(time * 0.021 + tree.ph + d * 0.7) * d * 1.1;
-      sy[d] = Math.cos(time * 0.017 + tree.ph * 1.3 + d * 0.9) * d * 1.4;
+  const drawBrain = () => {
+    const b = brain;
+    if (!b || boot < 0 || !visible(b.cy, b.Hb)) return;
+    // posición de cada neurona este fotograma (flotan un poco)
+    for (const m of b.n) {
+      m.X = m.x + Math.sin(time * 0.03 + m.ph) * 1.6;
+      m.Y = m.y + Math.cos(time * 0.026 + m.ph) * 1.6;
+    }
+    // silueta y surcos: aparecen a mitad del arranque, con un degradado que fluye
+    const sa = clamp01(boot * 1.6 - 0.3);
+    if (sa) {
+      ctx.strokeStyle = flowGradient();
+      ctx.lineWidth = mobile ? 1 : 1.4;
+      ctx.globalAlpha = (0.5 + recall * 0.3) * sa;
+      ctx.beginPath();
+      b.outline.forEach(([x, y], k) => (k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+      ctx.closePath();
+      ctx.stroke();
+      ctx.globalAlpha = 0.28 * sa;
+      ctx.lineWidth = mobile ? 0.7 : 1;
+      ctx.beginPath();
+      for (const c of b.sulci) {
+        ctx.moveTo(c[0][0], c[0][1]);
+        for (let k = 1; k < c.length - 1; k++) {
+          const mx = (c[k][0] + c[k + 1][0]) / 2, my = (c[k][1] + c[k + 1][1]) / 2;
+          ctx.quadraticCurveTo(c[k][0], c[k][1], k === c.length - 2 ? c[k + 1][0] : mx, k === c.length - 2 ? c[k + 1][1] : my);
+        }
+        if (c.length === 2) ctx.lineTo(c[1][0], c[1][1]);
+      }
+      ctx.stroke();
+    }
+    // conexiones: un trazo por color; cada una crece cuando ya han aparecido sus dos neuronas
+    ctx.lineWidth = mobile ? 0.7 : 1;
+    for (let c = 0; c < 3; c++) {
+      ctx.strokeStyle = flowColors[c * 16];
+      ctx.globalAlpha = 0.32 + recall * 0.3;
+      ctx.beginPath();
+      for (const e of b.e) {
+        if (e.c !== c) continue;
+        const f = clamp01((boot - e.from) / 0.08);
+        if (!f) continue;
+        const A = b.n[e.a], B = b.n[e.b];
+        ctx.moveTo(A.X, A.Y);
+        ctx.lineTo(A.X + (B.X - A.X) * f, A.Y + (B.Y - A.Y) * f);
+      }
+      ctx.stroke();
+    }
+    // neuronas
+    const k = mobile ? 0.6 : 1;
+    for (const m of b.n) {
+      const a = clamp01((boot - m.order) / 0.05);
+      if (a) glow(SPRITES[m.c], m.X, m.Y, (m.r + m.flash * 16) * k, (0.45 + 0.55 * m.flash) * a);
+    }
+    // sinapsis viajando por las conexiones
+    for (const s of synapses) {
+      const A = b.n[s.e.a], B = b.n[s.e.b];
+      glow(SPRITES[s.e.c], A.X + (B.X - A.X) * s.t, A.Y + (B.Y - A.Y) * s.t, 16 * k, 0.95);
+    }
+    // tronco: se carga al terminar el arranque y lleva impulsos hasta el primer nodo
+    if (stemCharge > 0) {
+      const s = b.stem;
+      ctx.beginPath();
+      ctx.moveTo(s.x0, s.y0);
+      ctx.bezierCurveTo(s.c1x, s.c1y, s.c2x, s.c2y, s.x1, s.y1);
+      ctx.setLineDash([s.len * stemCharge, s.len]);
+      ctx.strokeStyle = flowGradient();
+      ctx.globalAlpha = 0.14; ctx.lineWidth = 16; ctx.stroke();
+      ctx.globalAlpha = 0.9; ctx.lineWidth = 2.6; ctx.stroke();
+      ctx.setLineDash([]);
+      for (const sp of stemPulses) {
+        stemAt(sp.t, Q);
+        glow(SPRITES[sp.c], Q.x, Q.y, 22, 0.95);
+      }
     }
   };
 
   const drawDendrites = () => {
-    for (const tree of trees) {
-      if (tree.g <= 0.001) continue;
-      swayFor(tree);
-      const reach = tree.maxT * (1 - (1 - tree.g) ** 3);
-      const col = rgb(tree.color);
-      const spr = spriteOf(tree.color);
-      ctx.strokeStyle = col;
-      for (const b of tree.br) {
+    for (const t of trees) {
+      if (t.g <= 0.001) continue;
+      const reach = t.maxT * (1 - (1 - t.g) ** 3);
+      ctx.strokeStyle = t.col;
+      for (const b of t.br) {
         if (b.t0 >= reach) continue;
+        if (!visible(Math.min(b.y0, b.y1) + PAD, 40) && !visible(Math.max(b.y0, b.y1) + PAD, 40)) continue;
         const f = Math.min(1, (reach - b.t0) / (b.t1 - b.t0));
         // trozo de la curva de 0 a f (de Casteljau): control intermedio + punto final
-        const x0 = b.x0 + sx[b.depth], y0 = b.y0 + sy[b.depth] + PAD;
-        const cx = b.mx + (sx[b.depth] + sx[b.depth + 1]) / 2, cy = b.my + (sy[b.depth] + sy[b.depth + 1]) / 2 + PAD;
+        const [cx, cy] = branchCtrl(b);
+        const x0 = b.x0, y0 = b.y0 + PAD;
         onBranch(b, f, Q);
-        ctx.globalAlpha = (0.62 - b.depth * 0.06) * Math.min(1, tree.g * 2);
-        ctx.lineWidth = Math.max(0.6, 2.6 - b.depth * 0.36);
+        ctx.globalAlpha = 0.6 * Math.min(1, t.g * 2);
+        ctx.lineWidth = b.width;
         ctx.beginPath();
         ctx.moveTo(x0, y0);
-        ctx.quadraticCurveTo(x0 + (cx - x0) * f, y0 + (cy - y0) * f, Q.x, Q.y);
+        ctx.quadraticCurveTo(x0 + (cx - x0) * f, y0 + (cy + PAD - y0) * f, Q.x, Q.y);
         ctx.stroke();
-        if (f < 1) glow(spr, Q.x, Q.y, 14, 0.9); // punta que avanza mientras crece
-        else if (b.leaf) glow(spr, Q.x, Q.y, 9 + 4 * Math.sin(time * 0.08 + b.t1), 0.55 + b.glow * 0.45);
-        b.glow = Math.max(0, b.glow - 0.02);
+        if (f < 1) glow(t.spr, Q.x, Q.y, 14, 0.9); // punta que avanza mientras crece
+        else if (b.leaf) glow(t.spr, Q.x, Q.y, 12 + b.glow * 18, 0.55 + b.glow * 0.45); // sinapsis sobre la tarjeta
       }
     }
-
-    // impulsos: un destello que viaja desde el nodo hasta una de las puntas
+    // impulsos: un destello que viaja desde el nodo hasta una de las sinapsis
     for (const im of impulses) {
       let b = im.leaf;
       while (b.parent && b.t0 > im.d) b = b.parent;
-      swayFor(im.tree);
-      onBranch(b, Math.max(0, Math.min(1, (im.d - b.t0) / (b.t1 - b.t0))), Q);
-      glow(SPRITES[im.c], Q.x, Q.y, 22, 0.95);
-      glow(SPRITES[0], Q.x, Q.y, 7, 1);
+      onBranch(b, clamp01((im.d - b.t0) / (b.t1 - b.t0)), Q);
+      glow(SPRITES[im.c], Q.x, Q.y, 20, 0.95);
     }
   };
 
-
-  const drawNode = (i, dt) => {
+  const drawNode = (i) => {
     const p = points[i];
     const y = p.y + PAD;
     const f = flash[i];
@@ -1688,19 +1871,16 @@ function initTimeline() {
       const r = (24 + o * 9) * k;
       const tilt = o * 1.05 + i + time * 0.004;
       const cos = Math.cos(tilt), sin = Math.sin(tilt);
-      for (let e = 0; e < 5; e++) {
-        const ang = time * (0.05 + o * 0.018) * (o % 2 ? -1 : 1) + o * 2.1 - e * 0.13;
+      for (let e = 0; e < 3; e++) {
+        const ang = time * (0.05 + o * 0.018) * (o % 2 ? -1 : 1) + o * 2.1 - e * 0.16;
         const ex = Math.cos(ang) * r, ey = Math.sin(ang) * r * 0.36;
-        glow(SPRITES[o], p.x + ex * cos - ey * sin, y + ex * sin + ey * cos, 9 - e * 1.5, 0.95 - e * 0.18);
+        glow(SPRITES[o], p.x + ex * cos - ey * sin, y + ex * sin + ey * cos, 9 - e * 2, 0.95 - e * 0.3);
       }
     }
 
     // conexión nodo → tarjeta: trazo discontinuo que corre y una bola que la recorre
-    const gr = ctx.createLinearGradient(p.x, 0, p.edge, 0);
-    gr.addColorStop(0, rgb(p.color));
-    gr.addColorStop(1, "rgba(255, 255, 255, 0.2)");
-    ctx.strokeStyle = gr;
-    ctx.globalAlpha = 0.6;
+    ctx.strokeStyle = rgb(p.color);
+    ctx.globalAlpha = 0.45;
     ctx.lineWidth = 1;
     ctx.setLineDash([3, 7]);
     ctx.lineDashOffset = (p.left ? 1 : -1) * time * 0.8;
@@ -1708,44 +1888,35 @@ function initTimeline() {
     ctx.setLineDash([]);
     const run = (time * 0.012 + i * 0.37) % 1;
     glow(spr, p.x + (p.edge - p.x) * run, y, 15, 0.9 * Math.sin(run * Math.PI));
-
-    // de vez en cuando suelta un arco hacia fuera
-    nextArc[i] -= dt * (hovered.has(i) ? 3 : 1);
-    if (nextArc[i] <= 0) {
-      nextArc[i] = 60 + Math.random() * 140;
-      const a = Math.random() * Math.PI * 2, d = (34 + Math.random() * 44) * (mobile ? 0.6 : 1);
-      bolt(p.x, p.y, p.x + Math.cos(a) * d, p.y + Math.sin(a) * d, 14, 1.1, p.color);
-      for (let s = 0; s < 6; s++) spark(p.x + Math.cos(a) * d, p.y + Math.sin(a) * d, 1.6);
-    }
-    if (Math.random() < 0.1 * dt) spark(p.x, p.y, 1.3);
-    flash[i] = Math.max(0, f - 0.03 * dt);
   };
 
-  const draw = (dt) => {
-    ctx.clearRect(0, 0, w, h);
+  const draw = () => {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, -viewTop * dpr);
+    ctx.clearRect(0, viewTop, w, ch);
     ctx.globalCompositeOperation = "lighter";
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
 
-    // polvo flotante
-    for (const m of dust) glow(SPRITES[m.c], m.x, m.y, m.s, 0.18 + 0.22 * Math.sin(time * 0.05 + m.ph) ** 2);
+    // polvo flotante (pegado a la pantalla)
+    for (const m of dust) glow(SPRITES[m.c], m.x, viewTop + m.y, m.s, 0.16 + 0.2 * Math.sin(time * 0.05 + m.ph) ** 2);
 
+    drawBrain();
     buildThread();
     drawDendrites();
     drawThread();
 
     checkpoints.forEach((c, i) => {
-      if (c.classList.contains("is-active")) drawNode(i, dt);
+      if (!visible(points[i].y + PAD, 160)) return;
+      if (c.classList.contains("is-active")) drawNode(i);
       else if (c.classList.contains("checkpoint--next")) glow(SPRITES[3], points[i].x, points[i].y + PAD, 56 + 12 * Math.sin(time * 0.08), 0.4);
     });
 
     // cabeza de la carga: núcleo blanco con un halo que va cambiando de color
-    if (charge.p > 0.001 && charge.p < 0.999) {
-      const x = bx[headIndex], y = by[headIndex];
+    if (charge.p > 0.001 && charge.p < 0.999 && visible(headY)) {
       const c = ((time * 0.02) | 0) % 3;
-      glow(SPRITES[c], x, y, 110 + Math.random() * 20 + agitation * 60, 0.95);
-      glow(SPRITES[(c + 1) % 3], x, y, 46, 0.9);
-      glow(SPRITES[0], x, y, 14, 1);
+      glow(SPRITES[c], headX, headY, 110 + Math.random() * 20 + agitation * 60, 0.95);
+      glow(SPRITES[(c + 1) % 3], headX, headY, 46, 0.9);
+      glow(SPRITES[0], headX, headY, 14, 1);
     }
 
     // ondas cromáticas
@@ -1753,7 +1924,7 @@ function initTimeline() {
     for (const wv of waves) {
       if (wv.t < 0) continue;
       const k = wv.t / 42;
-      ctx.strokeStyle = flowColors[wv.c * 21];
+      ctx.strokeStyle = flowColors[wv.c * 16];
       ctx.globalAlpha = (1 - k) * 0.85;
       ctx.beginPath(); ctx.arc(wv.x, wv.y, 4 + (1 - (1 - k) ** 3) * wv.max, 0, Math.PI * 2); ctx.stroke();
     }
@@ -1775,14 +1946,98 @@ function initTimeline() {
 
     // chispas
     for (let i = 0; i < alive; i++) {
+      if (!visible(py[i], 20)) continue;
       const t = life[i] / ttl[i];
       const s = size[i] * (0.35 + 0.65 * t);
       ctx.globalAlpha = t * t;
       ctx.drawImage(SPRITES[tint[i]], px[i] - s / 2, py[i] - s / 2, s, s);
     }
 
-    ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = "source-over";
+  };
+
+  const stepBrain = (dt) => {
+    const b = brain;
+    if (!b) return;
+    // arranca la primera vez que asoma por la pantalla
+    if (boot < 0 && fxRect.top + b.cy < window.innerHeight * 0.85) boot = 0;
+    if (boot < 0) return;
+    if (boot < 1) {
+      boot = Math.min(1, boot + dt / BOOT);
+      if (boot === 1) {
+        // terminó de recordar: fogonazo en todas las neuronas y el tronco empieza a cargarse
+        b.n.forEach((m) => (m.flash = 1));
+        wave(b.stem.x0, b.stem.y0, mobile ? 70 : 160);
+      }
+      const pct = Math.round(boot * 100);
+      if (bootLabel && pct !== lastPct) {
+        lastPct = pct;
+        bootLabel.innerHTML = pct < 100 ? `&gt; recordando trayectoria… <b>${pct}%</b>` : `&gt; <b>${checkpoints.length}</b> recuerdos cargados`;
+      }
+    } else if (stemCharge < 1) stemCharge = Math.min(1, stemCharge + dt / 40);
+
+    recall *= Math.pow(0.97, dt);
+    for (const m of b.n) m.flash = Math.max(0, m.flash - 0.035 * dt);
+    if (!visible(b.cy, b.Hb)) return;
+
+    // el ratón cerca enciende las neuronas de alrededor
+    let near = 0;
+    if (cursor.power > 0.3) {
+      for (const m of b.n) {
+        const d = Math.hypot(m.X - cursor.x, m.Y - (cursor.y + PAD));
+        if (d < 70) { m.flash = Math.max(m.flash, (1 - d / 70) * 0.8); near = 1; }
+      }
+    }
+    // sinapsis: más mientras arranca, al recordar una etapa o con el ratón encima
+    nextSynapse -= dt * (1 + (boot < 1 ? 3 : 0) + recall * 5 + near * 3);
+    if (nextSynapse <= 0 && synapses.length < 18) {
+      const ready = b.e.filter((e) => boot >= e.from + 0.08);
+      if (ready.length) {
+        const e = ready[(Math.random() * ready.length) | 0];
+        synapses.push({ e, t: 0, v: 1 / (12 + Math.random() * 14) });
+      }
+      nextSynapse = 5 + Math.random() * 10;
+    }
+    for (let k = synapses.length - 1; k >= 0; k--) {
+      const s = synapses[k];
+      if ((s.t += s.v * dt) < 1) continue;
+      b.n[s.e.b].flash = 1;
+      synapses.splice(k, 1);
+    }
+    // impulsos que bajan por el tronco hasta el hilo
+    if (stemCharge >= 1) {
+      nextStem -= dt;
+      if (nextStem <= 0) { stemPulses.push({ t: 0, c: (Math.random() * 3) | 0 }); nextStem = 30 + Math.random() * 40; }
+    }
+    for (let k = stemPulses.length - 1; k >= 0; k--) if ((stemPulses[k].t += 0.022 * dt) >= 1) stemPulses.splice(k, 1);
+  };
+
+  const stepDendrites = (dt, head) => {
+    // crecen cuando les llega la carga y se recogen si se vuelve atrás
+    for (const t of trees) t.g = clamp01(t.g + (head >= t.at - 1 ? 0.016 : -0.04) * dt);
+    nextImpulse -= dt;
+    if (nextImpulse <= 0) {
+      const ready = trees.filter((t) => t.g >= 0.98 && visible(points[t.i].y + PAD, 200));
+      if (ready.length) fire(ready[(Math.random() * ready.length) | 0]);
+      nextImpulse = 14 + Math.random() * 26;
+    }
+    for (let k = impulses.length - 1; k >= 0; k--) {
+      const im = impulses[k];
+      if ((im.d += im.v * dt) < im.leaf.t1) continue;
+      // llega a la sinapsis: brilla, chisporrotea y la tarjeta recibe el chispazo
+      im.leaf.glow = 1;
+      for (let s = 0; s < 4; s++) spark(im.leaf.x1, im.leaf.y1, 1.4, Math.PI * 2, 0, 0.7, im.c);
+      zap(im.leaf.card);
+      impulses.splice(k, 1);
+    }
+    for (const t of trees) {
+      for (const l of t.leaves) {
+        l.glow = Math.max(0, l.glow - 0.03 * dt);
+        // con el ratón cerca de una sinapsis, se dispara
+        if (cursor.power > 0.5 && t.g >= 0.98 && l.glow < 0.05 && Math.abs(l.x1 - cursor.x) < 50 && Math.abs(l.y1 - cursor.y) < 50 && Math.random() < 0.05 * dt) fire(t, l);
+      }
+    }
   };
 
   const step = (dt) => {
@@ -1796,95 +2051,83 @@ function initTimeline() {
     }
     agitation *= Math.pow(0.96, dt);
 
-    // ratón: posición en el canvas y fuerza del empuje (entra y sale suave)
+    // ratón: posición en la línea y fuerza del empuje (entra y sale suave)
     if (cursor.active) {
-      if (!rect) rect = canvas.getBoundingClientRect();
-      cursor.x = clientX - rect.left;
-      cursor.y = clientY - rect.top - PAD;
+      cursor.x = clientX - fxRect.left;
+      cursor.y = clientY - fxRect.top - PAD;
     }
     cursor.power += ((cursor.active ? 1 : 0) - cursor.power) * (1 - Math.pow(0.9, dt));
 
     const head = charge.p * total;
+    stepBrain(dt);
+    stepDendrites(dt, head);
 
     // pulsos: nacen al principio y mueren al llegar a la cabeza (con chisporroteo)
     nextPulse -= dt;
     if (nextPulse <= 0 && head > 80) {
       pulses.push({ s: 0, v: 7 + Math.random() * 5, c: (Math.random() * 3) | 0 });
-      nextPulse = 12 + Math.random() * 22;
+      nextPulse = 16 + Math.random() * 26;
     }
     for (let k = pulses.length - 1; k >= 0; k--) {
       pulses[k].s += pulses[k].v * dt;
       if (pulses[k].s >= head) {
-        if (headIndex >= 0) for (let s = 0; s < 6; s++) spark(bx[headIndex], by[headIndex] - PAD, 2.4, Math.PI * 2, 0, 1, pulses[k].c);
+        for (let s = 0; s < 5; s++) spark(headX, headY - PAD, 2.4, Math.PI * 2, 0, 1, pulses[k].c);
         pulses.splice(k, 1);
       }
     }
 
     // estela de la cabeza
-    if (charge.p > 0.002 && charge.p < 0.998 && headIndex >= 0) {
-      let n = (0.6 + agitation * 4) * dt;
-      while (n > 0) { if (Math.random() < n) spark(bx[headIndex], by[headIndex] - PAD, 2.2, 2, -Math.PI / 2); n--; }
+    if (charge.p > 0.002 && charge.p < 0.998) {
+      let n = (0.5 + agitation * 3) * dt;
+      while (n > 0) { if (Math.random() < n) spark(headX, headY - PAD, 2.2, 2, -Math.PI / 2); n--; }
     }
+
+    // los nodos sueltan de vez en cuando un arco hacia fuera
+    checkpoints.forEach((c, i) => {
+      flash[i] = Math.max(0, flash[i] - 0.03 * dt);
+      if (!c.classList.contains("is-active") || !visible(points[i].y + PAD, 100)) return;
+      nextArc[i] -= dt * (hovered.has(i) ? 3 : 1);
+      if (nextArc[i] > 0) return;
+      nextArc[i] = 70 + Math.random() * 150;
+      const p = points[i];
+      const a = Math.random() * Math.PI * 2, d = (34 + Math.random() * 44) * (mobile ? 0.6 : 1);
+      bolt(p.x, p.y, p.x + Math.cos(a) * d, p.y + Math.sin(a) * d, 14, 1.1, p.color);
+    });
 
     for (const m of dust) {
       m.y -= m.v * dt;
-      if (m.y < 0) { m.y = h; }
+      if (m.y < 0) m.y = ch;
     }
     for (let k = waves.length - 1; k >= 0; k--) if ((waves[k].t += dt) > 42) waves.splice(k, 1);
     for (let k = bolts.length - 1; k >= 0; k--) if ((bolts[k].life -= dt) <= 0) bolts.splice(k, 1);
-
-    // dendritas: crecen cuando les llega la carga y se recogen si se vuelve atrás
-    if (treesDirty) { treesDirty = false; seedDendrites(); }
-    for (const t of trees) t.g = Math.max(0, Math.min(1, t.g + (head >= t.at - 1 ? 0.014 : -0.04) * dt));
-    // impulsos que salen del hilo hacia las puntas; al llegar, la sinapsis brilla y chisporrotea
-    nextImpulse -= dt;
-    if (nextImpulse <= 0) {
-      const grown = trees.filter((t) => t.g >= 0.98);
-      if (grown.length) fire(grown[(Math.random() * grown.length) | 0]);
-      nextImpulse = 3 + Math.random() * 9;
-    }
-    for (let k = impulses.length - 1; k >= 0; k--) {
-      const im = impulses[k];
-      if ((im.d += im.v * dt) < im.leaf.t1) continue;
-      im.leaf.glow = 1;
-      swayFor(im.tree);
-      onBranch(im.leaf, 1, Q);
-      for (let s = 0; s < 4; s++) spark(Q.x, Q.y - PAD, 1.4, Math.PI * 2, 0, 0.7, im.c);
-      impulses.splice(k, 1);
-    }
-    // con el ratón cerca de una punta, esa sinapsis se dispara
-    if (cursor.power > 0.5) {
-      for (const t of trees) {
-        if (t.g < 0.98) continue;
-        for (const l of t.leaves) {
-          if (l.glow < 0.1 && Math.abs(l.x1 - cursor.x) < 45 && Math.abs(l.y1 - cursor.y) < 45 && Math.random() < 0.06 * dt) fire(t, l);
-        }
-      }
-    }
     stepSparks(dt);
   };
 
-  // Bucle propio que solo corre con la línea en pantalla
-  let rafId = 0;
+  // Va en el mismo tick de GSAP que Lenis (después de él): el canvas y el scroll nunca se desfasan
+  let running = false;
   let last = 0;
-  const loop = (now) => {
+  const tick = () => {
+    const now = performance.now();
     const dt = Math.min((now - last) / 16.67, 3);
     last = now;
+    fxRect = fx.getBoundingClientRect();
+    viewTop = Math.max(0, Math.min(H - ch, -fxRect.top));
     step(dt);
-    draw(dt);
-    rafId = requestAnimationFrame(loop);
+    draw();
   };
 
   new IntersectionObserver(([entry]) => {
-    if (entry.isIntersecting && !rafId) {
+    if (entry.isIntersecting && !running) {
+      running = true;
       last = performance.now();
-      rafId = requestAnimationFrame(loop);
-    } else if (!entry.isIntersecting && rafId) {
-      cancelAnimationFrame(rafId);
-      rafId = 0;
+      gsap.ticker.add(tick);
+    } else if (!entry.isIntersecting && running) {
+      running = false;
+      gsap.ticker.remove(tick);
       alive = 0;
-      waves.length = bolts.length = pulses.length = impulses.length = 0;
-      ctx.clearRect(0, 0, w, h);
+      waves.length = bolts.length = pulses.length = impulses.length = synapses.length = stemPulses.length = 0;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       // fuera de pantalla se salta directamente al estado final, sin espectáculo
       charge.p = charge.target;
       apply(true);

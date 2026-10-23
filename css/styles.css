@@ -1842,13 +1842,13 @@ ul {
   --node: 24px;
   position: relative;
   isolation: isolate;
+  padding-top: 380px; /* aquí arriba vive el cerebro (lo pinta el canvas) */
 }
 
 .timeline__fx {
   position: absolute;
   inset: -100px 0;
-  width: 100%;
-  height: calc(100% + 200px);
+  /* la capa ocupa toda la línea, pero el canvas solo mide una pantalla y va pegado (sticky) */
   z-index: 2;
   pointer-events: none;
 }
@@ -2014,7 +2014,7 @@ ul {
 /* Solo brillo: "rotate" y "scale" del rombo y el hexágono no se tocan */
 @keyframes core-breathe {
   50% {
-    filter: brightness(1.35) drop-shadow(0 0 6px var(--c));
+    opacity: 0.7; /* solo opacidad: no obliga a repintar */
   }
 }
 
@@ -2062,7 +2062,9 @@ ul {
   pointer-events: none;
 }
 
-.checkpoint.is-active .checkpoint__frame::before {
+/* el haz solo recorre la tarjeta bajo el ratón (animar el fondo repinta la tarjeta entera) */
+.checkpoint.is-active .checkpoint__card:hover .checkpoint__frame::before,
+.checkpoint--now.is-active .checkpoint__frame::before {
   animation: card-scan 3.2s linear infinite;
 }
 
@@ -2485,5 +2487,53 @@ ul {
 @media (max-width: 760px) {
   .checkpoint--next .checkpoint__cta {
     min-width: 0;
+  }
+}
+
+/* ---------- El cerebro (arriba de la línea) y la capa del canvas ---------- */
+.timeline__fx canvas {
+  position: sticky;
+  top: 0;
+  display: block;
+  width: 100%;
+}
+
+.timeline__boot {
+  position: absolute;
+  top: 0;
+  left: var(--x);
+  translate: -50% 0;
+  z-index: 3;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+.timeline__boot b {
+  font-weight: 600;
+  color: var(--tl-cyan);
+}
+
+.timeline.is-static {
+  padding-top: 2.5rem;
+}
+
+/* Chispazo en el borde cuando le llega un impulso por una dendrita */
+.checkpoint .checkpoint__card.is-zap {
+  background: var(--c);
+  transition: none;
+}
+
+@media (max-width: 760px) {
+  .timeline {
+    padding-top: 220px;
+  }
+
+  .timeline__boot {
+    left: 0;
+    translate: none;
+    font-size: 0.7rem;
   }
 }
