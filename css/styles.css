@@ -3382,3 +3382,179 @@ html.lenis body {
 .perf-low .nebula span {
   animation: none !important;
 }
+
+/* =========================================================
+   TERMINAL (º / `): baja desde arriba como la consola de un juego
+   ========================================================= */
+.term {
+  margin: 0 auto auto;
+  width: min(860px, 100%);
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  overflow: visible;
+}
+
+.term::backdrop {
+  background: rgba(6, 8, 20, 0.55);
+}
+
+.term__box {
+  display: flex;
+  flex-direction: column;
+  height: min(56vh, 460px);
+  border-radius: 0 0 16px 16px;
+  background:
+    radial-gradient(90% 60% at 100% 0%, color-mix(in srgb, var(--accent-2) 8%, transparent), transparent 60%),
+    rgba(9, 12, 30, 0.97);
+  border: 1px solid rgba(230, 235, 255, 0.1);
+  border-top: 0;
+  box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.75), 0 0 60px -25px var(--accent-glow);
+  font: 400 0.84rem/1.65 "JetBrains Mono", ui-monospace, monospace;
+  overflow: hidden;
+}
+
+.term[open] .term__box {
+  animation: term-drop 0.38s var(--ease);
+}
+
+@keyframes term-drop {
+  from {
+    transform: translateY(-100%);
+  }
+}
+
+.term__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.term__bar i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(230, 235, 255, 0.14);
+}
+
+.term__bar i:first-child {
+  background: #ff5cc8;
+}
+
+.term__bar span {
+  margin-left: 0.5rem;
+}
+
+.term__out {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.8rem 1rem 0.2rem;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.term__line {
+  white-space: pre-wrap;
+  word-break: break-word;
+  animation: term-line 0.25s ease-out;
+}
+
+@keyframes term-line {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+}
+
+.term__line.is-echo {
+  margin-top: 0.35rem;
+}
+
+.term__line a {
+  color: var(--accent-2);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent-2) 40%, transparent);
+  text-underline-offset: 3px;
+}
+
+.term__prompt {
+  color: var(--accent-2);
+}
+
+.term__hi {
+  color: #fff;
+}
+
+.term__muted {
+  color: var(--text-muted);
+}
+
+.term__err {
+  color: #ff5cc8;
+}
+
+.term__ok {
+  color: #3dffa2;
+}
+
+.term__cmd,
+.term__dir {
+  color: #b3a8ff;
+}
+
+.term__sha {
+  color: #b3a8ff;
+}
+
+.term__repo {
+  color: var(--accent-2);
+}
+
+.term__tag {
+  display: inline-block;
+  margin: 0 0.15rem 0.3rem 0;
+  padding: 0 0.45rem;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--text);
+}
+
+.term__form {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 1rem 0.8rem;
+}
+
+.term__input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: 0;
+  outline: 0;
+  color: var(--text);
+  font: inherit;
+  caret-color: var(--accent-2);
+}
+
+@media (max-width: 760px) {
+  .term__box {
+    height: 62vh;
+    border-radius: 0 0 12px 12px;
+    font-size: 0.78rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .term[open] .term__box,
+  .term__line {
+    animation: none;
+  }
+}

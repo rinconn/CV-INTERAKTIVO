@@ -45,6 +45,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initTimeline();
   initContact();
   initCommandPalette();
+  initTerminal();
   initNameGlitch();
 
   if (animate) {
@@ -3442,6 +3443,7 @@ function initCommandPalette() {
       go("#contacto");
       setTimeout(() => document.querySelector("[data-qr] .echo__qr-trigger")?.click(), 1100); // ya en su sitio, se abre
     } },
+    { group: "Extras", label: "Abrir la terminal", icon: svg("terminal"), hint: "º", keys: "consola shell bash comandos", run: () => setTimeout(() => window.dispatchEvent(new Event("term:open")), 50) },
     { group: "Redes", label: "GitHub", icon: svgBrand("GitHub"), hint: "↗", keys: "codigo repos git", run: () => window.open(link("GitHub"), "_blank", "noopener") },
     { group: "Redes", label: "LinkedIn", icon: svgBrand("LinkedIn"), hint: "↗", keys: "red perfil trabajo", run: () => window.open(link("LinkedIn"), "_blank", "noopener") },
     // oculto: solo aparece si lo buscas
@@ -3542,4 +3544,269 @@ function initCommandPalette() {
   });
   // clic fuera de la caja (en el fondo) cierra
   dialog.addEventListener("click", (e) => e.target === dialog && close());
+}
+
+/* ---------- Terminal (tecla º / `): el CV respondiendo a comandos ---------- */
+// Baja desde arriba como la consola de un juego. Lee los datos de la propia página (proyectos, trayectoria,
+// skills…) para no duplicarlos, y "git log" trae los últimos commits reales de GitHub.
+function initTerminal() {
+  const term = document.getElementById("term");
+  if (!term || typeof term.showModal !== "function") return;
+  const out = term.querySelector(".term__out");
+  const input = term.querySelector(".term__input");
+  const form = term.querySelector(".term__form");
+  const GH_USER = "rinconn";
+  const EMAIL = "rincon.enriquemv@gmail.com";
+  const $$ = (sel) => [...document.querySelectorAll(sel)];
+  const text = (el) => (el ? el.textContent.replace(/\s+/g, " ").trim() : "");
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const norm = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+  // datos sacados de la página
+  const projects = () => $$(".project-card").map((c) => ({
+    name: text(c.querySelector(".project-card__title")),
+    meta: text(c.querySelector(".project-card__meta")),
+    desc: text(c.querySelector(".project-card__desc")),
+    url: c.querySelector('.project-card__links a[href^="http"]')?.href,
+  }));
+  const stages = () => $$(".checkpoint").map((c) => ({
+    id: text(c.querySelector(".checkpoint__id")),
+    kind: text(c.querySelector(".checkpoint__kind")),
+    when: text(c.querySelector(".checkpoint__head time, .checkpoint__live, .checkpoint__status")),
+    title: c.querySelector(".checkpoint__title")?.dataset.text || text(c.querySelector(".checkpoint__title")),
+    place: text(c.querySelector(".checkpoint__place")),
+  }));
+  const skills = () => [...new Set($$(".marquee .skill > span:not(.tip)").map(text))];
+
+  /* ----- Salida ----- */
+  const print = (html, cls = "") => {
+    const line = document.createElement("div");
+    line.className = `term__line ${cls}`;
+    line.innerHTML = html;
+    out.append(line);
+    out.scrollTop = out.scrollHeight;
+    return line;
+  };
+  const link = (href, label = href) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(label)}</a>`;
+  const go = (sel) => {
+    const el = document.querySelector(sel);
+    close();
+    if (!el) return;
+    if (lenis) lenis.scrollTo(el);
+    else el.scrollIntoView({ behavior: prefersReducedMotion ? "auto" : "smooth" });
+  };
+  const SECTIONS = { inicio: "#hero", skills: "#skills", proyectos: "#proyectos", trayectoria: "#trayectoria", contacto: "#contacto" };
+
+  // git log: los últimos pushes públicos. GitHub ya no manda los commits dentro del evento, solo el último (head),
+  // así que su mensaje se pide aparte. Sin token hay 60 consultas por hora: todo se guarda en caché
+  let gitCache = null;
+  const API = "https://api.github.com";
+  const getJson = (url) => fetch(url).then((r) => {
+    if (!r.ok) throw new Error(r.status);
+    return r.json();
+  });
+  const loadCommits = async () => {
+    const events = await getJson(`${API}/users/${GH_USER}/events/public?per_page=40`);
+    const seen = new Set();
+    const pushes = events.filter((e) => e.type === "PushEvent" && e.payload.head && !seen.has(e.payload.head) && seen.add(e.payload.head)).slice(0, 5);
+    return Promise.all(pushes.map(async (e) => ({
+      sha: e.payload.head,
+      repo: e.repo.name.split("/")[1],
+      branch: (e.payload.ref || "").replace("refs/heads/", ""),
+      at: e.created_at,
+      msg: await getJson(`${API}/repos/${e.repo.name}/commits/${e.payload.head}`).then((c) => c.commit.message.split("\n")[0]).catch(() => ""),
+    }))).then((list) => list.sort((a, b) => b.at.localeCompare(a.at))); // del más reciente al más antiguo
+  };
+  const ago = (iso) => {
+    const s = (Date.now() - new Date(iso)) / 1000;
+    const [n, u] = s < 3600 ? [s / 60, "min"] : s < 86400 ? [s / 3600, "h"] : [s / 86400, "d"];
+    return `hace ${Math.max(1, Math.round(n))} ${u}`;
+  };
+  const gitLog = async () => {
+    const wait = print('<span class="term__muted">conectando con github.com…</span>');
+    try {
+      gitCache ||= loadCommits();
+      const commits = await gitCache;
+      wait.remove();
+      if (!commits.length) return print('<span class="term__muted">sin commits públicos recientes · prueba <b>open github</b></span>');
+      commits.forEach((c) => print(
+        `<span class="term__sha">${c.sha.slice(0, 7)}</span> <span class="term__repo">${esc(c.repo)}</span><span class="term__muted">/${esc(c.branch)}</span> ${esc(c.msg || "(sin mensaje)")} <span class="term__muted">· ${ago(c.at)}</span>`
+      ));
+    } catch {
+      gitCache = null;
+      wait.innerHTML = `<span class="term__err">no se pudo hablar con GitHub</span> · ${link(`https://github.com/${GH_USER}`)}`;
+    }
+  };
+
+  const COMMANDS = {
+    help: {
+      desc: "lista de comandos",
+      run: () => {
+        Object.entries(COMMANDS).filter(([, c]) => !c.hidden).forEach(([name, c]) =>
+          print(`<span class="term__cmd">${name.padEnd(12, " ")}</span><span class="term__muted">${c.desc}</span>`));
+        print('<span class="term__muted">tab autocompleta · ↑↓ historial · esc o "exit" cierra</span>');
+      },
+    },
+    whoami: {
+      desc: "quién soy",
+      run: () => {
+        print('<b class="term__hi">Enrique Rincón</b> · Full Stack Developer');
+        print(esc(text(document.querySelector(".hero__desc"))));
+        print(`<span class="term__ok">●</span> ${esc(text(document.querySelector(".hero__status-text")))}`);
+      },
+    },
+    ls: {
+      desc: "qué hay aquí (ls proyectos…)",
+      run: ([dir]) => {
+        if (!dir) return print(Object.keys(SECTIONS).map((s) => `<span class="term__dir">${s}/</span>`).join("  ") + "  contacto.txt");
+        if (norm(dir).startsWith("proy")) return projects().forEach((p) => print(`<span class="term__dir">${esc(p.name)}</span> <span class="term__muted">${esc(p.meta)}</span>`));
+        if (norm(dir).startsWith("tray")) return COMMANDS.trayectoria.run([]);
+        if (norm(dir).startsWith("skill")) return COMMANDS.skills.run([]);
+        print(`<span class="term__err">ls: no existe '${esc(dir)}'</span>`);
+      },
+    },
+    cat: {
+      desc: "leer algo (cat scriptbay, cat contacto.txt)",
+      run: ([name = ""]) => {
+        const q = norm(name);
+        if (!q) return print('<span class="term__muted">uso: cat &lt;proyecto|contacto.txt&gt;</span>');
+        if (q.startsWith("contacto")) return COMMANDS.contacto.run([]);
+        if (q.startsWith("tray")) return COMMANDS.trayectoria.run([]);
+        const p = projects().find((p) => norm(p.name).startsWith(q));
+        if (!p) return print(`<span class="term__err">cat: ${esc(name)}: no existe</span> · prueba <b>ls proyectos</b>`);
+        print(`<b class="term__hi">${esc(p.name)}</b> <span class="term__muted">· ${esc(p.meta)}</span>`);
+        print(esc(p.desc));
+        if (p.url) print(`→ ${link(p.url)}`);
+      },
+    },
+    skills: {
+      desc: "con qué trabajo",
+      run: () => print(skills().map((s) => `<span class="term__tag">${esc(s)}</span>`).join(" ")),
+    },
+    trayectoria: {
+      desc: "de dónde vengo",
+      run: () => stages().forEach((s) => print(
+        `<span class="term__sha">${esc(s.id)}</span> <span class="term__muted">${esc(s.kind.padEnd(13, " "))}</span>${esc(s.title)}${s.place ? ` <span class="term__muted">· ${esc(s.place)}</span>` : ""}${s.when ? ` <span class="term__muted">(${esc(s.when)})</span>` : ""}`
+      )),
+    },
+    contacto: {
+      desc: "cómo hablar conmigo",
+      run: () => {
+        print(`email     <a href="mailto:${EMAIL}">${EMAIL}</a>`);
+        print(`github    ${link(`https://github.com/${GH_USER}`, `github.com/${GH_USER}`)}`);
+        const li = document.querySelector('.social-rail a[aria-label="LinkedIn"]')?.href;
+        if (li) print(`linkedin  ${link(li, "in/enrique-rincón-mateeva")}`);
+      },
+    },
+    "git log": { desc: "mis últimos commits (en directo)", run: gitLog },
+    open: {
+      desc: "abrir github | linkedin | email",
+      run: ([what = ""]) => {
+        const q = norm(what);
+        if (q.startsWith("git")) return window.open(`https://github.com/${GH_USER}`, "_blank", "noopener");
+        if (q.startsWith("lin")) return window.open(document.querySelector('.social-rail a[aria-label="LinkedIn"]').href, "_blank", "noopener");
+        if (q.startsWith("mail") || q.startsWith("email")) return (location.href = `mailto:${EMAIL}`);
+        print('<span class="term__muted">uso: open github | linkedin | email</span>');
+      },
+    },
+    cd: {
+      desc: "ir a una sección (cd proyectos)",
+      run: ([where = ""]) => {
+        const key = Object.keys(SECTIONS).find((k) => k.startsWith(norm(where).replace(/\/$/, "")));
+        if (!where || !key) return print(`<span class="term__muted">uso: cd ${Object.keys(SECTIONS).join(" | ")}</span>`);
+        go(SECTIONS[key]);
+      },
+    },
+    clear: { desc: "limpiar", run: () => (out.innerHTML = "") },
+    exit: { desc: "cerrar", run: () => close() },
+    // ocultos
+    sudo: {
+      hidden: true,
+      run: (args) => {
+        if (/contrat|fich|hire/.test(norm(args.join(" ")))) {
+          print('<span class="term__ok">[sudo]</span> permiso concedido. Abriendo la PR_07…');
+          setTimeout(() => go(".checkpoint--next"), 700);
+        } else print(`<span class="term__err">${esc(args.join(" ") || "sudo")}: buen intento 😏</span>`);
+      },
+    },
+    date: { hidden: true, run: () => print(new Date().toLocaleString("es-ES")) },
+    echo: { hidden: true, run: (args) => print(esc(args.join(" "))) },
+    rm: { hidden: true, run: () => print('<span class="term__err">rm: aquí no se borra nada, que me ha costado mucho</span>') },
+    vim: { hidden: true, run: () => print('<span class="term__muted">para salir de vim… mejor no entres</span>') },
+  };
+  const NAMES = Object.keys(COMMANDS);
+
+  /* ----- Entrada: historial, autocompletado y ejecución ----- */
+  const history = [];
+  let hIdx = 0;
+  const exec = (raw) => {
+    const line = raw.trim();
+    print(`<span class="term__prompt">enrique@cv:~$</span> ${esc(line)}`, "is-echo");
+    if (!line) return;
+    history.push(line);
+    hIdx = history.length;
+    const low = line.toLowerCase();
+    // los comandos de dos palabras primero (git log)
+    const name = NAMES.find((n) => n.includes(" ") && low.startsWith(n)) || low.split(/\s+/)[0];
+    const cmd = COMMANDS[name];
+    if (!cmd) return print(`<span class="term__err">comando no encontrado: ${esc(name)}</span> · escribe <b>help</b>`);
+    cmd.run(line.slice(name.length).trim().split(/\s+/).filter(Boolean));
+  };
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    exec(input.value);
+    input.value = "";
+  });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowUp" && history.length) {
+      e.preventDefault();
+      hIdx = Math.max(0, hIdx - 1);
+      input.value = history[hIdx];
+    } else if (e.key === "ArrowDown" && history.length) {
+      e.preventDefault();
+      hIdx = Math.min(history.length, hIdx + 1);
+      input.value = history[hIdx] || "";
+    } else if (e.key === "Tab") {
+      e.preventDefault();
+      const v = input.value.toLowerCase();
+      const hits = [...NAMES.filter((n) => !COMMANDS[n].hidden), ...projects().map((p) => `cat ${norm(p.name)}`), ...Object.keys(SECTIONS).map((s) => `cd ${s}`)]
+        .filter((n) => v && n.startsWith(v));
+      if (hits.length === 1) input.value = hits[0] + " ";
+      else if (hits.length > 1) print(hits.map((h) => `<span class="term__cmd">${esc(h)}</span>`).join("  "), "is-hint");
+    }
+  });
+  // clic en cualquier parte de la terminal: el foco vuelve a la línea de comandos
+  term.addEventListener("click", (e) => {
+    if (e.target === term) return close(); // clic fuera de la caja
+    if (!e.target.closest("a") && !getSelection().toString()) input.focus();
+  });
+
+  /* ----- Abrir y cerrar ----- */
+  let greeted = false;
+  const open = () => {
+    if (term.open) return;
+    lenis?.stop();
+    term.showModal();
+    input.focus();
+    if (!greeted) {
+      greeted = true;
+      print('<b class="term__hi">enrique@cv</b> <span class="term__muted">· v1.0 · escribe</span> <b>help</b> <span class="term__muted">para empezar</span>');
+      print('<span class="term__muted">pistas: whoami · ls proyectos · git log · y algún comando que no sale en help…</span>');
+    }
+  };
+  const close = () => {
+    if (term.open) term.close();
+    lenis?.start();
+  };
+  term.addEventListener("close", () => lenis?.start());
+  window.addEventListener("term:open", open);
+
+  // º en teclado español, ` en el inglés (la misma tecla física); no si se está escribiendo en otro campo
+  document.addEventListener("keydown", (e) => {
+    if (e.code !== "Backquote" || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (term.open) { e.preventDefault(); return close(); }
+    if (e.target.closest?.("input, textarea, [contenteditable]")) return;
+    e.preventDefault();
+    open();
+  });
 }
