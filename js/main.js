@@ -1058,9 +1058,10 @@ function initActiveLinks() {
   sections.forEach((s) => observer.observe(s));
 }
 
-/* ---------- Trayectoria: línea de energía. La carga baja con el scroll y enciende cada nodo ---------- */
-// Todo el "show" va en un canvas encima de la línea: el rayo con su chisporroteo, los pulsos que lo
-// recorren, las órbitas de los nodos encendidos, ondas expansivas, rayos hacia las tarjetas y chispas
+/* ---------- Trayectoria: un hilo de energía neón que baja haciendo bucles y enciende cada nodo ---------- */
+// Todo va en un canvas: el hilo (con una doble hélice enrollada), los pulsos que lo recorren,
+// la cabeza de la carga, las órbitas de los nodos, ondas cromáticas, rayos, chispas y polvo flotante.
+// El hilo está vivo: ondula, se agita con la velocidad del scroll y se aparta del ratón
 function initTimeline() {
   const timeline = document.getElementById("timeline");
   if (!timeline) return;
@@ -1070,10 +1071,24 @@ function initTimeline() {
   const nodes = checkpoints.map((c) => c.querySelector(".checkpoint__node"));
   const cards = checkpoints.map((c) => c.querySelector(".checkpoint__card"));
 
-  const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
-  const PAD = 100;         // el canvas sobresale 100 px por arriba y por abajo (ver CSS)
-  const MAX = 700;         // tope de chispas vivas
-  const START = "62%";     // altura de la pantalla a la que va la cabeza de la carga
+  const PAD = 100;       // el canvas sobresale 100 px por arriba y por abajo (ver CSS)
+  const MAX = 900;       // tope de chispas vivas
+  const START = "62%";   // altura de la pantalla a la que va la cabeza de la carga
+  const STEPS = 90;      // muestras por tramo entre dos nodos
+
+  // Paleta neón: cian → rosa → rojo (y violeta para el último nodo)
+  const PALETTE = { cyan: [34, 225, 255], pink: [255, 62, 165], red: [255, 51, 85], violet: [155, 92, 255] };
+  const KIND_COLOR = { work: "cyan", edu: "pink", proj: "red", next: "violet" };
+  const FLOW = [PALETTE.cyan, PALETTE.pink, PALETTE.red, PALETTE.pink]; // ciclo de color a lo largo del hilo
+  const rgb = ([r, g, b]) => `rgb(${r}, ${g}, ${b})`;
+  // 64 tonos precalculados del ciclo: así no se construyen strings de color en cada trazo
+  const FLOW_STEPS = 64;
+  const flowColors = Array.from({ length: FLOW_STEPS }, (_, k) => {
+    const u = (k / FLOW_STEPS) * FLOW.length;
+    const a = FLOW[Math.floor(u) % FLOW.length], b = FLOW[(Math.floor(u) + 1) % FLOW.length], f = u % 1;
+    return rgb(a.map((v, j) => Math.round(v + (b[j] - v) * f)));
+  });
+  const flowAt = (u) => flowColors[((Math.floor(u * FLOW_STEPS) % FLOW_STEPS) + FLOW_STEPS) % FLOW_STEPS];
 
   // Posición sin transforms (las tarjetas entran desplazadas): se suman los offset hasta la línea
   const offsetIn = (el) => {
@@ -1082,35 +1097,77 @@ function initTimeline() {
     return { x, y };
   };
 
-  let trackX = 0, trackTop = 0, trackH = 1, w = 0, h = 0;
-  let scale = 1; // en móvil la línea va pegada al borde: órbitas y halos más pequeños para que no se corten
-  let points = [];  // centro de cada nodo y borde de su tarjeta más cercano a la línea
-  let stops = [];   // 0 → 1: en qué punto de la carga se enciende cada nodo
+  /* ----- Geometría: tramos entre nodos con forma de trocoide (un bucle en medio de cada uno) ----- */
+  let w = 0, h = 0, mobile = false, total = 1;
+  let points = [];    // centro de cada nodo, color y borde de su tarjeta más cercano al hilo
+  let segs = [];      // tramos: parámetros de la curva + tabla de longitudes para recorrerla a velocidad constante
+  let stops = [];     // 0 → 1: en qué punto de la carga se enciende cada nodo
+
+  // Punto del tramo en t ∈ [0, 1] sin ondulación. θ va de -π a π: en los extremos la curva sale
+  // vertical del nodo y en el centro (b > a) da la vuelta sobre sí misma → bucle
+  const basePoint = (s, t, out) => {
+    const th = -Math.PI + 2 * Math.PI * t;
+    out.x = s.x0 + s.dir * s.bx * (1 + Math.cos(th));
+    out.y = s.y0 + s.a * (th + Math.PI) - s.b * Math.sin(th);
+    return out;
+  };
+
   const measure = () => {
+    mobile = timeline.clientWidth < 600;
     points = nodes.map((n, i) => {
       const o = offsetIn(n);
       const c = offsetIn(cards[i]);
       const x = o.x + n.offsetWidth / 2;
       const left = c.x + cards[i].offsetWidth / 2 < x; // tarjeta a la izquierda del nodo
-      return { x, y: o.y + n.offsetHeight / 2, edge: left ? c.x + cards[i].offsetWidth : c.x, left };
+      const color = PALETTE[KIND_COLOR[checkpoints[i].dataset.kind] || "cyan"];
+      return { x, y: o.y + n.offsetHeight / 2, edge: left ? c.x + cards[i].offsetWidth : c.x, left, color };
     });
-    trackX = points[0].x;
-    trackTop = points[0].y;
-    trackH = Math.max(1, points[points.length - 1].y - trackTop);
-    stops = points.map((p) => (p.y - trackTop) / trackH);
-    timeline.style.setProperty("--track-top", `${trackTop}px`);
-    timeline.style.setProperty("--track-h", `${trackH}px`);
+
+    const tmp = { x: 0, y: 0 };
+    let acc = 0;
+    segs = [];
+    stops = [0];
+    for (let i = 0; i < points.length - 1; i++) {
+      const p = points[i], q = points[i + 1];
+      const d = q.y - p.y;
+      const a = d / (2 * Math.PI);
+      const s = {
+        i, x0: p.x, y0: p.y, a,
+        b: a * (mobile ? 1.25 : 1.55),           // > a → bucle; cuanto más, más grande
+        bx: mobile ? 9 : 34,                      // anchura del bucle (en móvil casi una onda)
+        dir: mobile ? 1 : i % 2 ? -1 : 1,         // en escritorio cada bucle sale hacia un lado
+        lut: new Float32Array(STEPS + 1),
+        start: acc,
+        len: 0,
+      };
+      let prev = basePoint(s, 0, { x: 0, y: 0 });
+      for (let k = 1; k <= STEPS; k++) {
+        basePoint(s, k / STEPS, tmp);
+        s.lut[k] = s.lut[k - 1] + Math.hypot(tmp.x - prev.x, tmp.y - prev.y);
+        prev = { x: tmp.x, y: tmp.y };
+      }
+      s.len = s.lut[STEPS];
+      acc += s.len;
+      segs.push(s);
+      stops.push(acc);
+    }
+    total = Math.max(1, acc);
+    stops = stops.map((v) => v / total);
+
+    const top = points[0].y, bottom = points[points.length - 1].y;
+    timeline.style.setProperty("--track-top", `${top}px`);
+    timeline.style.setProperty("--track-h", `${bottom - top}px`);
 
     const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     w = canvas.clientWidth;
     h = canvas.clientHeight;
-    scale = w < 600 ? 0.62 : 1;
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (animate) seedDust(); // sin animaciones no hay polvo (ni se ha creado su lista todavía)
   };
 
-  // Sin animaciones: línea cargada, nodos encendidos y tarjetas visibles desde el principio
+  // Sin animaciones: línea recta cargada, nodos encendidos y tarjetas visibles desde el principio
   if (!animate) {
     measure();
     new ResizeObserver(measure).observe(timeline);
@@ -1119,31 +1176,35 @@ function initTimeline() {
     return;
   }
 
-  // Sprite de luz: núcleo blanco que se funde al acento (se reutiliza para todo lo que brilla)
-  const sprite = document.createElement("canvas");
-  sprite.width = sprite.height = 64;
-  const sctx = sprite.getContext("2d");
-  const grad = sctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-  grad.addColorStop(0, "#fff");
-  grad.addColorStop(0.2, accent);
-  sctx.fillStyle = accent; // el canvas normaliza el color a #rrggbb y de ahí sale la versión translúcida
-  const [r, g, b] = sctx.fillStyle.match(/\w\w/g).map((hex) => parseInt(hex, 16));
-  grad.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, 0.35)`);
-  grad.addColorStop(1, "transparent");
-  sctx.fillStyle = grad;
-  sctx.fillRect(0, 0, 64, 64);
-  const glow = (x, y, size, alpha) => {
+  /* ----- Sprites de luz, uno por color (núcleo blanco que se funde al color) ----- */
+  const makeSprite = ([r, g, b]) => {
+    const c = document.createElement("canvas");
+    c.width = c.height = 64;
+    const x = c.getContext("2d");
+    const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, "#fff");
+    gr.addColorStop(0.18, `rgb(${r}, ${g}, ${b})`);
+    gr.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, 0.3)`);
+    gr.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+    x.fillStyle = gr;
+    x.fillRect(0, 0, 64, 64);
+    return c;
+  };
+  const SPRITES = [PALETTE.cyan, PALETTE.pink, PALETTE.red, PALETTE.violet].map(makeSprite);
+  const spriteOf = (color) => SPRITES[[PALETTE.cyan, PALETTE.pink, PALETTE.red, PALETTE.violet].indexOf(color)] || SPRITES[0];
+  const glow = (spr, x, y, size, alpha) => {
     ctx.globalAlpha = alpha;
-    ctx.drawImage(sprite, x - size / 2, y - size / 2, size, size);
+    ctx.drawImage(spr, x - size / 2, y - size / 2, size, size);
   };
 
   /* ----- Chispas: arrays planos, sin objetos que recoger cada fotograma ----- */
   const px = new Float32Array(MAX), py = new Float32Array(MAX);
   const vx = new Float32Array(MAX), vy = new Float32Array(MAX);
   const life = new Float32Array(MAX), ttl = new Float32Array(MAX), size = new Float32Array(MAX);
+  const tint = new Uint8Array(MAX);
   let alive = 0;
 
-  const spark = (x, y, speed, spread = Math.PI * 2, dir = 0, big = 1) => {
+  const spark = (x, y, speed, spread = Math.PI * 2, dir = 0, big = 1, color = -1) => {
     if (alive >= MAX) return;
     const i = alive++;
     const a = dir + (Math.random() - 0.5) * spread;
@@ -1151,8 +1212,9 @@ function initTimeline() {
     px[i] = x; py[i] = y + PAD;
     vx[i] = Math.cos(a) * s;
     vy[i] = Math.sin(a) * s;
-    ttl[i] = life[i] = 35 + Math.random() * 65; // en fotogramas de 60 fps
+    ttl[i] = life[i] = 35 + Math.random() * 70; // en fotogramas de 60 fps
     size[i] = (4 + Math.random() * 9) * big;
+    tint[i] = color >= 0 ? color : (Math.random() * 3) | 0; // por defecto cian, rosa o rojo al azar
   };
 
   const stepSparks = (dt) => {
@@ -1163,7 +1225,7 @@ function initTimeline() {
         // se cambia por la última viva: el array sigue compacto
         const j = --alive;
         px[i] = px[j]; py[i] = py[j]; vx[i] = vx[j]; vy[i] = vy[j];
-        life[i] = life[j]; ttl[i] = ttl[j]; size[i] = size[j];
+        life[i] = life[j]; ttl[i] = ttl[j]; size[i] = size[j]; tint[i] = tint[j];
         i--;
         continue;
       }
@@ -1174,16 +1236,36 @@ function initTimeline() {
     }
   };
 
-  /* ----- Ondas expansivas y rayos (pocos a la vez: aquí sí valen objetos) ----- */
+  /* ----- Polvo flotante alrededor del hilo: sube despacio y parpadea ----- */
+  let dust = [];
+  function seedDust() {
+    const n = mobile ? 22 : 60;
+    const cx = points[0].x;
+    dust = Array.from({ length: n }, () => ({
+      x: mobile ? Math.random() * 90 : cx + (Math.random() - 0.5) * 380,
+      y: Math.random() * h,
+      v: 0.15 + Math.random() * 0.35,
+      s: 4 + Math.random() * 8,
+      ph: Math.random() * 6.28,
+      c: (Math.random() * 3) | 0,
+    }));
+  }
+
+  /* ----- Ondas, rayos y pulsos (pocos a la vez: aquí sí valen objetos) ----- */
   const waves = [];
   const bolts = [];
+  const pulses = [];
+  let nextPulse = 0;
 
-  const wave = (x, y, delay = 0, max = 110) => waves.push({ x, y: y + PAD, t: -delay, max });
+  // Onda cromática: tres anillos (cian, rosa, rojo) algo desfasados
+  const wave = (x, y, max = 120) => {
+    for (let k = 0; k < 3; k++) waves.push({ x, y: y + PAD, t: -k * 4, max: max * (1 - k * 0.12), c: k });
+  };
 
   // Rayo quebrado por desplazamiento del punto medio: se genera una vez y se desvanece
-  const bolt = (x1, y1, x2, y2, ttl = 20, width = 1.6) => {
+  const bolt = (x1, y1, x2, y2, ttl = 20, width = 1.6, color = PALETTE.cyan) => {
     let pts = [[x1, y1 + PAD], [x2, y2 + PAD]];
-    let off = Math.hypot(x2 - x1, y2 - y1) * 0.22;
+    let off = Math.hypot(x2 - x1, y2 - y1) * 0.25;
     for (let k = 0; k < 5; k++) {
       const next = [pts[0]];
       for (let i = 1; i < pts.length; i++) {
@@ -1193,50 +1275,46 @@ function initTimeline() {
       pts = next;
       off /= 2;
     }
-    bolts.push({ pts, life: ttl, ttl, width });
+    bolts.push({ pts, life: ttl, ttl, width, color: rgb(color) });
   };
 
-  /* ----- Pulsos que bajan por el tramo cargado ----- */
-  const pulses = [];
-  let nextPulse = 0;
-
-  /* ----- Estado de la carga ----- */
+  /* ----- Estado ----- */
   const charge = { p: 0, target: 0 };
   let lastP = 0;
-  let headSpeed = 0;
-  const flash = new Float32Array(checkpoints.length); // destello de cada nodo al encenderse
+  let agitation = 0;  // sube con la velocidad del scroll y hace que el hilo se agite
+  let time = 0;
+  const flash = new Float32Array(checkpoints.length);
   const nextArc = new Float32Array(checkpoints.length).fill(60);
   const shown = new Set();
   const hovered = new Set();
+  const cursor = { x: 0, y: 0, active: false, power: 0 };
 
-  // La tarjeta se materializa desde el nodo: se abre (clip-path) desde el lado de la línea
+  // La tarjeta se materializa desde el nodo: se abre (clip-path) desde el lado del hilo
   const reveal = (i) => {
     if (shown.has(i)) return;
     shown.add(i);
     const card = cards[i];
     const fromNode = points[i].left ? "inset(0% 0% 0% 100% round 14px)" : "inset(0% 100% 0% 0% round 14px)";
     gsap.fromTo(card,
-      { autoAlpha: 0, x: points[i].left ? 40 : -40, clipPath: fromNode, filter: "blur(8px) brightness(2)" },
+      { autoAlpha: 0, x: points[i].left ? 50 : -50, clipPath: fromNode, filter: "blur(10px) brightness(2.2) hue-rotate(60deg)" },
       {
-        autoAlpha: 1, x: 0, clipPath: "inset(0% 0% 0% 0% round 14px)", filter: "blur(0px) brightness(1)",
-        duration: 0.9, ease: "expo.out", clearProps: "clipPath,filter",
+        autoAlpha: 1, x: 0, clipPath: "inset(0% 0% 0% 0% round 14px)", filter: "blur(0px) brightness(1) hue-rotate(0deg)",
+        duration: 1, ease: "expo.out", clearProps: "clipPath,filter",
       });
-    gsap.from(card.children, { autoAlpha: 0, y: 14, duration: 0.6, ease: "power3.out", stagger: 0.06, delay: 0.18 });
+    gsap.from(card.children, { autoAlpha: 0, x: points[i].left ? 16 : -16, duration: 0.6, ease: "power3.out", stagger: 0.07, delay: 0.2 });
   };
 
   const ignite = (i) => {
     const p = points[i];
     flash[i] = 1;
-    for (let k = 0; k < 70; k++) spark(p.x, p.y, 5.5, Math.PI * 2, 0, 1.1);
+    for (let k = 0; k < 90; k++) spark(p.x, p.y, 6, Math.PI * 2, 0, 1.1);
     wave(p.x, p.y);
-    wave(p.x, p.y, 7, 70);
-    for (let k = 0; k < 3; k++) bolt(p.x, p.y, p.edge, p.y + (Math.random() - 0.5) * 50, 22 + k * 6, 2);
+    for (let k = 0; k < 3; k++) bolt(p.x, p.y, p.edge, p.y + (Math.random() - 0.5) * 60, 22 + k * 6, 2, p.color);
     reveal(i);
   };
 
   const apply = (silent = false) => {
     const p = charge.p;
-    headSpeed = Math.max(headSpeed, Math.abs(p - lastP) * trackH);
     // Al bajar se enciende (con todo el espectáculo); al volver a subir se apaga en silencio
     checkpoints.forEach((c, i) => {
       const on = p >= stops[i] - 0.001;
@@ -1250,31 +1328,39 @@ function initTimeline() {
   };
 
   measure();
-  const follow = (self) => (charge.target = self.progress);
   ScrollTrigger.create({
     trigger: timeline,
-    start: () => `top+=${trackTop} ${START}`,
-    end: () => `top+=${trackTop + trackH} ${START}`,
+    start: () => `top+=${points[0].y} ${START}`,
+    end: () => `top+=${points[points.length - 1].y} ${START}`,
     invalidateOnRefresh: true,
-    onUpdate: follow,
-    onRefresh: follow,
+    onUpdate: (self) => {
+      charge.target = self.progress;
+      agitation = Math.min(1, agitation + Math.abs(self.getVelocity()) / 6000);
+    },
+    onRefresh: (self) => (charge.target = self.progress),
   });
   new ResizeObserver(() => { measure(); ScrollTrigger.refresh(); }).observe(timeline);
 
-  // Años gigantes con parallax: se mueven a otra velocidad que la línea
-  checkpoints.forEach((c) => {
-    const year = c.querySelector(".checkpoint__year");
-    if (year) gsap.fromTo(year, { yPercent: 60 }, { yPercent: -60, ease: "none", scrollTrigger: { trigger: c, start: "top bottom", end: "bottom top", scrub: true } });
-  });
+  // Ratón: el hilo se aparta de él; en las tarjetas, foco y un rayo desde su nodo
+  let clientX = 0, clientY = 0, rect = null;
+  const invalidate = () => (rect = null);
+  window.addEventListener("scroll", invalidate, { passive: true });
+  window.addEventListener("resize", invalidate);
+  timeline.addEventListener("pointermove", (e) => {
+    if (e.pointerType === "touch") return;
+    clientX = e.clientX;
+    clientY = e.clientY;
+    cursor.active = true;
+  }, { passive: true });
+  timeline.addEventListener("pointerleave", () => (cursor.active = false));
 
-  // Ratón: foco en la tarjeta, y su nodo suelta un rayo y más chispas
   cards.forEach((card, i) => {
     card.addEventListener("pointerenter", () => {
       hovered.add(i);
       if (!checkpoints[i].classList.contains("is-active")) return;
       const p = points[i];
-      bolt(p.x, p.y, p.edge, p.y + (Math.random() - 0.5) * 30, 18);
-      wave(p.x, p.y, 0, 60);
+      bolt(p.x, p.y, p.edge, p.y + (Math.random() - 0.5) * 30, 18, 1.6, p.color);
+      wave(p.x, p.y, 70);
     });
     card.addEventListener("pointerleave", () => hovered.delete(i));
     card.addEventListener("pointermove", (e) => {
@@ -1284,142 +1370,223 @@ function initTimeline() {
     });
   });
 
+  /* ----- El hilo vivo: punto del tramo con ondulación + empuje del ratón ----- */
+  const livePoint = (s, t, out) => {
+    basePoint(s, t, out);
+    const env = Math.sin(Math.PI * t); // 0 en los nodos: los extremos no se mueven
+    const amp = (mobile ? 3 : 7) + agitation * (mobile ? 8 : 26);
+    out.x += env * amp * Math.sin(time * 0.045 + t * 9 + s.i * 1.7);
+    out.y += env * amp * 0.45 * Math.cos(time * 0.038 + t * 6 + s.i);
+    if (cursor.power > 0.01) {
+      const dx = out.x - cursor.x, dy = out.y - cursor.y;
+      const d2 = dx * dx + dy * dy, R = 150;
+      if (d2 < R * R && d2 > 1) {
+        const d = Math.sqrt(d2);
+        const f = (1 - d / R) ** 2 * 46 * env * cursor.power;
+        out.x += (dx / d) * f;
+        out.y += (dy / d) * f;
+      }
+    }
+    return out;
+  };
+
+  // Pasa de longitud recorrida (0 → total) a tramo + t, usando las tablas de longitudes
+  const locate = (dist, out) => {
+    let s = segs[segs.length - 1];
+    for (const seg of segs) if (dist <= seg.start + seg.len) { s = seg; break; }
+    const local = Math.max(0, Math.min(s.len, dist - s.start));
+    let k = 1;
+    while (k < STEPS && s.lut[k] < local) k++;
+    const f = (local - s.lut[k - 1]) / Math.max(0.001, s.lut[k] - s.lut[k - 1]);
+    out.seg = s;
+    out.t = (k - 1 + f) / STEPS;
+    return out;
+  };
+
+  // Buffer de puntos del hilo de este fotograma (se reutiliza)
+  const MAXPTS = 1200;
+  const bx = new Float32Array(MAXPTS), by = new Float32Array(MAXPTS), bs = new Float32Array(MAXPTS);
+  let nPts = 0, headIndex = 0;
+  const tmp = { x: 0, y: 0 };
+  const loc = { seg: null, t: 0 };
+
+  const buildThread = () => {
+    nPts = 0;
+    const head = charge.p * total;
+    headIndex = -1;
+    for (const s of segs) {
+      for (let k = 0; k <= STEPS; k++) {
+        if (k === 0 && s.i > 0) continue; // el primer punto de cada tramo es el último del anterior
+        const dist = s.start + s.lut[k];
+        if (headIndex < 0 && dist >= head) {
+          // punto exacto de la cabeza, para que el tramo cargado acabe justo ahí
+          locate(head, loc);
+          livePoint(loc.seg, loc.t, tmp);
+          bx[nPts] = tmp.x; by[nPts] = tmp.y + PAD; bs[nPts] = head;
+          headIndex = nPts++;
+        }
+        livePoint(s, k / STEPS, tmp);
+        bx[nPts] = tmp.x; by[nPts] = tmp.y + PAD; bs[nPts] = dist;
+        nPts++;
+      }
+    }
+    if (headIndex < 0) headIndex = nPts - 1;
+  };
+
   /* ----- Dibujo ----- */
-  let time = 0;
-
-  const drawBeam = (headY) => {
-    const top = trackTop + PAD, bottom = headY + PAD;
-    if (bottom - top < 1) return;
-
-    // halo ancho + núcleo + hilo blanco
-    ctx.globalAlpha = 0.14;
-    ctx.lineWidth = 12;
-    ctx.beginPath(); ctx.moveTo(trackX, top); ctx.lineTo(trackX, bottom); ctx.stroke();
-    ctx.globalAlpha = 0.9;
-    ctx.lineWidth = 2.4;
-    ctx.stroke();
-    ctx.globalAlpha = 0.65;
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = "#fff";
-    ctx.stroke();
-    ctx.strokeStyle = accent;
-
-    // dos hilos eléctricos que serpentean alrededor del rayo y cambian en cada fotograma
-    ctx.lineWidth = 1;
-    for (let s = 0; s < 2; s++) {
-      ctx.globalAlpha = 0.45;
+  const strokeRange = (from, to, offset = 0, strand = 0) => {
+    // trazo por trozos de 3 puntos, cada uno con el color del ciclo en ese punto (el color "fluye")
+    for (let i = from; i < to; i += 3) {
+      const end = Math.min(i + 3, to);
+      ctx.strokeStyle = flowAt(bs[i] * 0.0025 - time * 0.012 + strand * 0.25);
       ctx.beginPath();
-      for (let y = top; y <= bottom; y += 9) {
-        const x = trackX + Math.sin(y * 0.045 + time * (0.12 + s * 0.05) + s * 2) * 4 + (Math.random() - 0.5) * 2.4;
-        y === top ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      for (let k = i; k <= end; k++) {
+        let x = bx[k], y = by[k];
+        if (offset) {
+          // hélice: desplazamiento perpendicular al hilo que gira con el tiempo
+          const k0 = Math.max(0, k - 1), k1 = Math.min(nPts - 1, k + 1);
+          let nx = -(by[k1] - by[k0]), ny = bx[k1] - bx[k0];
+          const l = Math.hypot(nx, ny) || 1;
+          const o = offset * Math.sin(bs[k] * 0.07 - time * 0.16 + strand * Math.PI);
+          x += (nx / l) * o; y += (ny / l) * o;
+        }
+        k === i ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       }
       ctx.stroke();
     }
+  };
 
-    // pulsos: destellos alargados que bajan hasta la cabeza
+  const drawThread = () => {
+    // tramo aún sin cargar: un hilo fino y discontinuo
+    ctx.globalAlpha = 0.16;
+    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = "#fff";
+    ctx.setLineDash([2, 7]);
+    ctx.beginPath();
+    for (let k = headIndex; k < nPts; k++) (k === headIndex ? ctx.moveTo(bx[k], by[k]) : ctx.lineTo(bx[k], by[k]));
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    if (headIndex < 1) return;
+    // tramo cargado: halo ancho, núcleo de color, doble hélice y un hilo blanco por dentro
+    ctx.globalAlpha = 0.13; ctx.lineWidth = 14; strokeRange(0, headIndex);
+    ctx.globalAlpha = 0.95; ctx.lineWidth = 2.6; strokeRange(0, headIndex);
+    ctx.globalAlpha = 0.7;  ctx.lineWidth = 1.1;
+    strokeRange(0, headIndex, mobile ? 4 : 7, 0);
+    strokeRange(0, headIndex, mobile ? 4 : 7, 1);
+    ctx.globalAlpha = 0.55; ctx.lineWidth = 0.8; ctx.strokeStyle = "#fff";
+    ctx.beginPath();
+    for (let k = 0; k <= headIndex; k++) (k ? ctx.lineTo(bx[k], by[k]) : ctx.moveTo(bx[k], by[k]));
+    ctx.stroke();
+
+    // pulsos: cometas de color que recorren el tramo cargado
     for (const pulse of pulses) {
-      const y = top + pulse.y;
-      const g = ctx.createLinearGradient(0, y - 70, 0, y);
-      g.addColorStop(0, "transparent");
-      g.addColorStop(1, "#fff");
-      ctx.globalAlpha = 0.9;
-      ctx.strokeStyle = g;
-      ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.moveTo(trackX, Math.max(top, y - 70)); ctx.lineTo(trackX, y); ctx.stroke();
-      glow(trackX, y, 26, 0.8);
+      locate(pulse.s, loc);
+      for (let k = 0; k < 4; k++) {
+        locate(Math.max(0, pulse.s - k * 9), loc);
+        livePoint(loc.seg, loc.t, tmp);
+        glow(SPRITES[pulse.c], tmp.x, tmp.y + PAD, 26 - k * 5, 0.95 - k * 0.2);
+      }
     }
-    ctx.strokeStyle = accent;
   };
 
   const drawNode = (i, dt) => {
     const p = points[i];
     const y = p.y + PAD;
     const f = flash[i];
+    const spr = spriteOf(p.color);
     const breathe = 0.5 + 0.5 * Math.sin(time * 0.06 + i);
-    const boost = (hovered.has(i) ? 1.4 : 1) * scale;
+    const k = (hovered.has(i) ? 1.4 : 1) * (mobile ? 0.6 : 1);
 
-    // halo que respira (y destella al encenderse)
-    glow(p.x, y, (70 + breathe * 18 + f * 120) * boost, 0.32 + f * 0.6);
+    glow(spr, p.x, y, (74 + breathe * 20 + f * 160) * k, 0.34 + f * 0.6);
 
-    // electrones en tres órbitas inclinadas, con estela
+    // electrones en tres órbitas inclinadas, cada una de un color, con estela
     for (let o = 0; o < 3; o++) {
-      const r = (24 + o * 9) * boost;
-      const tilt = o * 1.05 + i;
+      const r = (24 + o * 9) * k;
+      const tilt = o * 1.05 + i + time * 0.004;
       const cos = Math.cos(tilt), sin = Math.sin(tilt);
-      for (let k = 0; k < 4; k++) {
-        const ang = time * (0.05 + o * 0.018) * (o % 2 ? -1 : 1) + o * 2.1 - k * 0.14;
+      for (let e = 0; e < 5; e++) {
+        const ang = time * (0.05 + o * 0.018) * (o % 2 ? -1 : 1) + o * 2.1 - e * 0.13;
         const ex = Math.cos(ang) * r, ey = Math.sin(ang) * r * 0.36;
-        glow(p.x + ex * cos - ey * sin, y + ex * sin + ey * cos, 9 - k * 1.8, 0.95 - k * 0.22);
+        glow(SPRITES[o], p.x + ex * cos - ey * sin, y + ex * sin + ey * cos, 9 - e * 1.5, 0.95 - e * 0.18);
       }
     }
 
-    // conexión nodo → tarjeta: trazo discontinuo que corre y una bola que lo recorre
-    ctx.globalAlpha = 0.55;
+    // conexión nodo → tarjeta: trazo discontinuo que corre y una bola que la recorre
+    const gr = ctx.createLinearGradient(p.x, 0, p.edge, 0);
+    gr.addColorStop(0, rgb(p.color));
+    gr.addColorStop(1, "rgba(255, 255, 255, 0.2)");
+    ctx.strokeStyle = gr;
+    ctx.globalAlpha = 0.6;
     ctx.lineWidth = 1;
     ctx.setLineDash([3, 7]);
     ctx.lineDashOffset = (p.left ? 1 : -1) * time * 0.8;
     ctx.beginPath(); ctx.moveTo(p.x, y); ctx.lineTo(p.edge, y); ctx.stroke();
     ctx.setLineDash([]);
-    const run = ((time * 0.012 + i * 0.37) % 1);
-    glow(p.x + (p.edge - p.x) * run, y, 14, 0.9 * Math.sin(run * Math.PI));
+    const run = (time * 0.012 + i * 0.37) % 1;
+    glow(spr, p.x + (p.edge - p.x) * run, y, 15, 0.9 * Math.sin(run * Math.PI));
 
-    // de vez en cuando suelta un arco pequeño hacia fuera
+    // de vez en cuando suelta un arco hacia fuera
     nextArc[i] -= dt * (hovered.has(i) ? 3 : 1);
     if (nextArc[i] <= 0) {
-      nextArc[i] = 70 + Math.random() * 150;
-      const a = Math.random() * Math.PI * 2, d = 34 + Math.random() * 40;
-      bolt(p.x, p.y, p.x + Math.cos(a) * d, p.y + Math.sin(a) * d, 14, 1.1);
-      for (let k = 0; k < 6; k++) spark(p.x + Math.cos(a) * d, p.y + Math.sin(a) * d, 1.6);
+      nextArc[i] = 60 + Math.random() * 140;
+      const a = Math.random() * Math.PI * 2, d = (34 + Math.random() * 44) * (mobile ? 0.6 : 1);
+      bolt(p.x, p.y, p.x + Math.cos(a) * d, p.y + Math.sin(a) * d, 14, 1.1, p.color);
+      for (let s = 0; s < 6; s++) spark(p.x + Math.cos(a) * d, p.y + Math.sin(a) * d, 1.6);
     }
-
-    // chispas sueltas
-    if (Math.random() < 0.09 * dt * boost) spark(p.x, p.y, 1.3);
+    if (Math.random() < 0.1 * dt) spark(p.x, p.y, 1.3);
     flash[i] = Math.max(0, f - 0.03 * dt);
   };
 
   const draw = (dt) => {
     ctx.clearRect(0, 0, w, h);
     ctx.globalCompositeOperation = "lighter";
-    ctx.strokeStyle = accent;
     ctx.lineCap = "round";
+    ctx.lineJoin = "round";
 
-    const headY = trackTop + charge.p * trackH;
-    drawBeam(headY);
+    // polvo flotante
+    for (const m of dust) glow(SPRITES[m.c], m.x, m.y, m.s, 0.18 + 0.22 * Math.sin(time * 0.05 + m.ph) ** 2);
+
+    buildThread();
+    drawThread();
 
     checkpoints.forEach((c, i) => {
       if (c.classList.contains("is-active")) drawNode(i, dt);
-      else if (c.classList.contains("checkpoint--next")) glow(points[i].x, points[i].y + PAD, 50 + 10 * Math.sin(time * 0.08), 0.35);
+      else if (c.classList.contains("checkpoint--next")) glow(SPRITES[3], points[i].x, points[i].y + PAD, 56 + 12 * Math.sin(time * 0.08), 0.4);
     });
 
-    // cabeza de la carga: núcleo blanco que vibra
+    // cabeza de la carga: núcleo blanco con un halo que va cambiando de color
     if (charge.p > 0.001 && charge.p < 0.999) {
-      const jitter = 1 + Math.random() * 0.25 + Math.min(headSpeed / 10, 0.6);
-      glow(trackX, headY + PAD, 64 * jitter, 0.85);
-      glow(trackX, headY + PAD, 18, 1);
+      const x = bx[headIndex], y = by[headIndex];
+      const c = ((time * 0.02) | 0) % 3;
+      glow(SPRITES[c], x, y, 70 + Math.random() * 12 + agitation * 40, 0.9);
+      glow(SPRITES[(c + 1) % 3], x, y, 34, 0.8);
+      glow(SPRITES[0], x, y, 14, 1);
     }
 
-    // ondas expansivas
+    // ondas cromáticas
     ctx.lineWidth = 2;
     for (const wv of waves) {
       if (wv.t < 0) continue;
-      const k = wv.t / 40;
-      ctx.globalAlpha = (1 - k) * 0.8;
-      ctx.beginPath(); ctx.arc(wv.x, wv.y, 4 + k * wv.max, 0, Math.PI * 2); ctx.stroke();
+      const k = wv.t / 42;
+      ctx.strokeStyle = flowColors[wv.c * 21];
+      ctx.globalAlpha = (1 - k) * 0.85;
+      ctx.beginPath(); ctx.arc(wv.x, wv.y, 4 + (1 - (1 - k) ** 3) * wv.max, 0, Math.PI * 2); ctx.stroke();
     }
 
-    // rayos: trazo ancho y tenue + trazo fino casi blanco
+    // rayos: trazo ancho y tenue del color + trazo fino casi blanco
     for (const b of bolts) {
       const a = b.life / b.ttl;
       ctx.beginPath();
       b.pts.forEach(([x, y], k) => (k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
-      ctx.globalAlpha = a * 0.35;
+      ctx.strokeStyle = b.color;
+      ctx.globalAlpha = a * 0.45;
       ctx.lineWidth = b.width * 4;
       ctx.stroke();
+      ctx.strokeStyle = "#f2fbff";
       ctx.globalAlpha = a;
       ctx.lineWidth = b.width;
-      ctx.strokeStyle = "#ffe6c2";
       ctx.stroke();
-      ctx.strokeStyle = accent;
     }
 
     // chispas
@@ -1427,7 +1594,7 @@ function initTimeline() {
       const t = life[i] / ttl[i];
       const s = size[i] * (0.35 + 0.65 * t);
       ctx.globalAlpha = t * t;
-      ctx.drawImage(sprite, px[i] - s / 2, py[i] - s / 2, s, s);
+      ctx.drawImage(SPRITES[tint[i]], px[i] - s / 2, py[i] - s / 2, s, s);
     }
 
     ctx.globalAlpha = 1;
@@ -1443,32 +1610,43 @@ function initTimeline() {
       if (Math.abs(charge.target - charge.p) < 0.0005) charge.p = charge.target; // remata sin quedarse en 0.9998
       apply();
     }
+    agitation *= Math.pow(0.96, dt);
 
-    const span = charge.p * trackH;
+    // ratón: posición en el canvas y fuerza del empuje (entra y sale suave)
+    if (cursor.active) {
+      if (!rect) rect = canvas.getBoundingClientRect();
+      cursor.x = clientX - rect.left;
+      cursor.y = clientY - rect.top - PAD;
+    }
+    cursor.power += ((cursor.active ? 1 : 0) - cursor.power) * (1 - Math.pow(0.9, dt));
 
-    // pulsos: nacen arriba y mueren al llegar a la cabeza
+    const head = charge.p * total;
+
+    // pulsos: nacen al principio y mueren al llegar a la cabeza (con chisporroteo)
     nextPulse -= dt;
-    if (nextPulse <= 0 && span > 60) {
-      pulses.push({ y: 0, v: 7 + Math.random() * 4 });
-      nextPulse = 28 + Math.random() * 40;
+    if (nextPulse <= 0 && head > 80) {
+      pulses.push({ s: 0, v: 7 + Math.random() * 5, c: (Math.random() * 3) | 0 });
+      nextPulse = 22 + Math.random() * 34;
     }
     for (let k = pulses.length - 1; k >= 0; k--) {
-      pulses[k].y += pulses[k].v * dt;
-      if (pulses[k].y >= span) {
-        // al llegar a la cabeza, chisporrotea
-        for (let s = 0; s < 5; s++) spark(trackX, trackTop + span, 2.2);
+      pulses[k].s += pulses[k].v * dt;
+      if (pulses[k].s >= head) {
+        if (headIndex >= 0) for (let s = 0; s < 6; s++) spark(bx[headIndex], by[headIndex] - PAD, 2.4, Math.PI * 2, 0, 1, pulses[k].c);
         pulses.splice(k, 1);
       }
     }
 
-    // estela de la cabeza mientras avanza
-    if (charge.p > 0.002 && charge.p < 0.998) {
-      let n = (0.25 + Math.min(headSpeed / 3, 2)) * dt;
-      while (n > 0) { if (Math.random() < n) spark(trackX, trackTop + span, 2.4, 1.8, -Math.PI / 2); n--; }
+    // estela de la cabeza
+    if (charge.p > 0.002 && charge.p < 0.998 && headIndex >= 0) {
+      let n = (0.35 + agitation * 3) * dt;
+      while (n > 0) { if (Math.random() < n) spark(bx[headIndex], by[headIndex] - PAD, 2.2, 2, -Math.PI / 2); n--; }
     }
-    headSpeed *= Math.pow(0.88, dt);
 
-    for (let k = waves.length - 1; k >= 0; k--) if ((waves[k].t += dt) > 40) waves.splice(k, 1);
+    for (const m of dust) {
+      m.y -= m.v * dt;
+      if (m.y < 0) { m.y = h; }
+    }
+    for (let k = waves.length - 1; k >= 0; k--) if ((waves[k].t += dt) > 42) waves.splice(k, 1);
     for (let k = bolts.length - 1; k >= 0; k--) if ((bolts[k].life -= dt) <= 0) bolts.splice(k, 1);
     stepSparks(dt);
   };
