@@ -47,7 +47,6 @@ document.addEventListener("DOMContentLoaded", () => {
   initCommandPalette();
   initTerminal();
   initBatBuddy();
-  initNameGlitch();
 
   if (animate) {
     initHeroIntro();
@@ -349,6 +348,7 @@ function initHeroIntro() {
       .timeline({ defaults: { ease: "expo.out" } })
       .fromTo(".hero__desc", { autoAlpha: 0, y: 30 }, { ...show, duration: 1 })
       .fromTo(".hero__actions", { autoAlpha: 0, y: 30 }, { ...show, duration: 1 }, "-=0.7")
+      .fromTo(".hero__term", { autoAlpha: 0, y: 12 }, { ...show, duration: 0.8 }, "-=0.6")
       .fromTo(".social-rail", { autoAlpha: 0, x: -24 }, { autoAlpha: 1, x: 0, duration: 1 }, "<0.1")
       .fromTo(".hero__scroll", { autoAlpha: 0, y: -10 }, { autoAlpha: 0.6, y: 0, duration: 0.8 }, "-=0.5");
 
@@ -371,43 +371,7 @@ function initHeroIntro() {
     .fromTo(".hero__role", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4 }, "-=0.7");
 }
 
-/* ---------- Glitch ocasional del nombre del hero (la animación está en el CSS) ---------- */
-function initNameGlitch() {
-  const name = document.querySelector(".glitch");
-  if (!name || prefersReducedMotion) return;
-  // Intervalos aleatorios para que no sea predecible: el primero justo al acabar la intro
-  // (las letras terminan de entrar hacia los 2 s), para que el visitante lo vea enseguida
-  const FIRST_MIN = 2000, FIRST_MAX = 3000;
-  const MIN_WAIT = 4000, MAX_WAIT = 6000;
-  const GLITCHED_CHARS = 3;
-
-  let heroVisible = true;
-  new IntersectionObserver(([entry]) => (heroVisible = entry.isIntersecting)).observe(name);
-
-  const glitch = () => {
-    // Letras sueltas que se descolocan (solo existen si la intro ha partido el texto)
-    const chars = [...name.querySelectorAll(".split-char")];
-    for (let i = 0; i < GLITCHED_CHARS && chars.length; i++) {
-      chars.splice((Math.random() * chars.length) | 0, 1)[0].classList.add("is-glitched");
-    }
-    name.classList.add("is-glitching");
-  };
-
-  name.addEventListener("animationend", (e) => {
-    if (e.target !== name) return; // ignora el animationend de palabras y letras
-    name.classList.remove("is-glitching");
-    name.querySelectorAll(".is-glitched").forEach((c) => c.classList.remove("is-glitched"));
-  });
-
-  const schedule = (min, max) =>
-    setTimeout(() => {
-      if (heroVisible && !document.hidden && !name.classList.contains("is-glitching")) glitch();
-      schedule(MIN_WAIT, MAX_WAIT);
-    }, min + Math.random() * (max - min));
-  schedule(FIRST_MIN, FIRST_MAX);
-}
-
-/* ---------- Globo de puntos del hero + bola de plasma (canvas, sin librerías) ---------- */
+/* ---------- Globo de puntos del hero: una nube de tormenta que gira (canvas, sin librerías) ---------- */
 function initHeroGlobe() {
   const canvas = document.getElementById("heroGlobe");
   if (!canvas) return;
@@ -417,8 +381,7 @@ function initHeroGlobe() {
   const toRgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
   const lighten = (rgb, k) => `rgb(${rgb.map((c) => Math.round(c + (255 - c) * k)).join(", ")})`;
 
-  // Puntos en el color de acento (ámbar, leído del CSS). Los rayos van en cian:
-  // excepción deliberada solo para este efecto, para que destaque sobre el ámbar.
+  // Puntos en el color de acento (violeta, leído del CSS); las descargas van en aqua para que destaquen.
   const accent = toRgb(getComputedStyle(document.documentElement).getPropertyValue("--accent").trim());
   const dotColor = `rgb(${accent.join(", ")})`;
   const plasmaRgb = toRgb("#21e6c1");
@@ -430,7 +393,7 @@ function initHeroGlobe() {
 
   let w, h, cx, cy, radius, count;
   // Datos de los puntos en arrays tipados, reservados una vez (nada se crea por fotograma)
-  let px, py, pz, psize, sx, sy, sr, lvl, order;
+  let px, py, pz, psize, pph, sx, sy, sr, lvl, order;
   const levelCount = new Int32Array(LEVELS);
   const levelStart = new Int32Array(LEVELS + 1);
   const levelAlpha = Float32Array.from({ length: LEVELS }, (_, i) => {
@@ -439,6 +402,7 @@ function initHeroGlobe() {
   });
 
   let rotY = 0;
+  let clock = 0; // ms, para el latido de los puntos
   const tilt = { x: 0.35, y: 0 };   // inclinación actual
   const target = { x: 0.35, y: 0 }; // inclinación hacia la que va (ratón)
 
@@ -446,7 +410,7 @@ function initHeroGlobe() {
   const buildPoints = (n) => {
     count = n;
     px = new Float32Array(n); py = new Float32Array(n); pz = new Float32Array(n);
-    psize = new Float32Array(n); sx = new Float32Array(n); sy = new Float32Array(n);
+    psize = new Float32Array(n); pph = new Float32Array(n); sx = new Float32Array(n); sy = new Float32Array(n);
     sr = new Float32Array(n); lvl = new Int8Array(n); order = new Int32Array(n);
     const golden = Math.PI * (3 - Math.sqrt(5));
     for (let i = 0; i < n; i++) {
@@ -457,17 +421,9 @@ function initHeroGlobe() {
       pz[i] = Math.sin(golden * i) * ring;
       // unos pocos puntos grandes, como en el ejemplo
       psize[i] = Math.random() < 0.08 ? 1.5 + Math.random() * 1.5 : 0.45 + Math.random() * 0.75;
+      pph[i] = Math.random() * Math.PI * 2;
     }
   };
-
-  /* --- Estado de la bola de plasma --- */
-  const canPlasma = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
-  const pointer = { x: 0, y: 0, active: false }; // posición del ratón en la ventana
-  let energy = 0;          // 0 = apagado, 1 = rayos a pleno
-  let nextBoltAt = 0;
-  let hasContact = false;
-  let contactX = 0, contactY = 0; // punto donde el rayo toca el "cristal"
-  let rect = null;         // posición del canvas en pantalla (caché)
 
   // Círculo del color de acento pre-renderizado una vez; drawImage lo escala a cada punto
   const dotSprite = document.createElement("canvas");
@@ -497,8 +453,9 @@ function initHeroGlobe() {
   };
 
   const drawDots = () => {
-    const cosY = Math.cos(rotY + tilt.y), sinY = Math.sin(rotY + tilt.y);
-    const cosX = Math.cos(tilt.x), sinX = Math.sin(tilt.x);
+    cosY = Math.cos(rotY + tilt.y); sinY = Math.sin(rotY + tilt.y);
+    cosX = Math.cos(tilt.x); sinX = Math.sin(tilt.x);
+    const boil = clock * 0.0013;
     levelCount.fill(0);
 
     // 1) Proyección 3D → 2D y nivel de opacidad de cada punto
@@ -507,7 +464,7 @@ function initHeroGlobe() {
       const z1 = px[i] * sinY + pz[i] * cosY;
       const y2 = py[i] * cosX - z1 * sinX;
       const z2 = py[i] * sinX + z1 * cosX;
-      const scale = PERSPECTIVE / (PERSPECTIVE - z2);
+      const scale = (PERSPECTIVE / (PERSPECTIVE - z2)) * (1 + 0.025 * Math.sin(boil + pph[i])); // la nube hierve
       const x = cx + x1 * radius * scale;
       const y = cy + y2 * radius * scale;
       if (x < -10 || x > w + 10 || y < -10 || y > h + 10) { lvl[i] = -1; continue; }
@@ -546,16 +503,27 @@ function initHeroGlobe() {
     ctx.globalAlpha = 1;
   };
 
-  /* --- Bola de plasma: rayos del centro hacia el cursor --- */
+  /* --- Tormenta: la esfera es una nube y dentro saltan descargas --- */
+  // Con el ratón encima gira rápido (y frena con inercia al salir) y las descargas se vuelven frecuentes.
+  // Cada descarga une dos puntos del interior que giran con la esfera, parpadea, a veces repite
+  // (como un relámpago de verdad) e ilumina por dentro los puntos de su alrededor.
+  const fine = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  const pointer = { x: 0, y: 0, active: false }; // posición del ratón en la ventana
+  let rect = null;   // posición del canvas en pantalla (caché)
+  let hover = 0;     // 0 → 1, suavizado
+  let nextStrike = 1800;
+  let flash = 0;     // la nube iluminada por dentro
+  const strike = { on: false, life: 0, total: 0, again: false, a: new Float32Array(3), b: new Float32Array(3), nextZig: 0, alpha: 0 };
+  const mid = { x: 0, y: 0, depth: 0 };
 
-  // Buffers de rayos reservados una vez y reutilizados en cada regeneración
-  const MAX_BOLTS = 12;             // 3 principales + hasta 9 ramas
+  // Buffers de rayos reservados una vez y reutilizados en cada parpadeo
+  const MAX_BOLTS = 8;              // 1 principal + ramas
   const MAX_POINTS = (1 << 6) + 1;  // subdivisión de profundidad 6
   const boltX = Array.from({ length: MAX_BOLTS }, () => new Float32Array(MAX_POINTS));
   const boltY = Array.from({ length: MAX_BOLTS }, () => new Float32Array(MAX_POINTS));
   const boltLen = new Int32Array(MAX_BOLTS);
-  const boltKind = new Int8Array(MAX_BOLTS); // índice en STRENGTHS (entero: se compara sin errores de redondeo)
-  const STRENGTHS = [1, 0.6, 0.4]; // principal, secundario, rama
+  const boltKind = new Int8Array(MAX_BOLTS); // 0 principal, 1 rama
+  const STRENGTHS = [1, 0.5];
   let boltCount = 0;
 
   // Rayo en zigzag por subdivisión del punto medio, escrito en el buffer `slot`
@@ -577,30 +545,98 @@ function initHeroGlobe() {
     boltLen[slot] = n + 1;
   };
 
-  const buildBolts = () => {
-    boltCount = 0;
-    const mains = 2 + Math.round(Math.random());
-    for (let m = 0; m < mains; m++) {
-      const jx = contactX + (Math.random() - 0.5) * radius * 0.08;
-      const jy = contactY + (Math.random() - 0.5) * radius * 0.08;
-      const len = Math.hypot(jx - cx, jy - cy);
-      const main = boltCount++;
-      zigzagInto(main, cx, cy, jx, jy, len * 0.22, 6);
-      boltKind[main] = m === 0 ? 0 : 1;
+  // de la esfera (unidades) a pantalla, con el mismo giro que los puntos
+  let cosY = 1, sinY = 0, cosX = 1, sinX = 0;
+  const project = (v, out) => {
+    const x1 = v[0] * cosY - v[2] * sinY;
+    const z1 = v[0] * sinY + v[2] * cosY;
+    const y2 = v[1] * cosX - z1 * sinX;
+    const z2 = v[1] * sinX + z1 * cosX;
+    const s = PERSPECTIVE / (PERSPECTIVE - z2);
+    out.x = cx + x1 * radius * s;
+    out.y = cy + y2 * radius * s;
+    out.depth = z2;
+  };
+  const pa = { x: 0, y: 0, depth: 0 }, pb = { x: 0, y: 0, depth: 0 };
 
-      // Ramificaciones cortas que salen del rayo principal
-      const angle = Math.atan2(jy - cy, jx - cx);
-      const branches = 1 + Math.floor(Math.random() * 3);
-      for (let k = 0; k < branches && boltCount < MAX_BOLTS; k++) {
-        const from = Math.floor(boltLen[main] * (0.3 + Math.random() * 0.5));
-        const bx = boltX[main][from], by = boltY[main][from];
-        const bAngle = angle + (Math.random() < 0.5 ? -1 : 1) * (0.35 + Math.random() * 0.6);
-        const bLen = len * (0.15 + Math.random() * 0.25);
-        const slot = boltCount++;
-        zigzagInto(slot, bx, by, bx + Math.cos(bAngle) * bLen, by + Math.sin(bAngle) * bLen, bLen * 0.35, 4);
-        boltKind[slot] = 2;
+  const randomInside = (out, rMin, rMax) => {
+    const u = Math.random() * 2 - 1, t = Math.random() * Math.PI * 2, s = Math.sqrt(1 - u * u);
+    const r = rMin + Math.random() * (rMax - rMin);
+    out[0] = Math.cos(t) * s * r; out[1] = u * r; out[2] = Math.sin(t) * s * r;
+  };
+  const fire = () => {
+    randomInside(strike.a, 0.15, 0.6);
+    // el otro extremo, lejos del primero pero sin salirse de la nube
+    for (let k = 0; k < 6; k++) {
+      randomInside(strike.b, 0.45, 0.9);
+      const d = Math.hypot(strike.b[0] - strike.a[0], strike.b[1] - strike.a[1], strike.b[2] - strike.a[2]);
+      if (d > 0.6) break;
+    }
+    strike.on = true;
+    strike.total = strike.life = 160 + Math.random() * 200;
+    strike.again = Math.random() < 0.4; // doble descarga
+    strike.nextZig = 0;
+    flash = 1;
+  };
+
+  const rebuild = () => {
+    project(strike.a, pa);
+    project(strike.b, pb);
+    mid.x = (pa.x + pb.x) / 2;
+    mid.y = (pa.y + pb.y) / 2;
+    mid.depth = (pa.depth + pb.depth) / 2;
+    const len = Math.hypot(pb.x - pa.x, pb.y - pa.y);
+    boltCount = 1;
+    zigzagInto(0, pa.x, pa.y, pb.x, pb.y, len * 0.3, 6);
+    boltKind[0] = 0;
+    const angle = Math.atan2(pb.y - pa.y, pb.x - pa.x);
+    const branches = 2 + ((Math.random() * 3) | 0);
+    for (let k = 0; k < branches && boltCount < MAX_BOLTS; k++) {
+      const from = Math.floor(boltLen[0] * (0.2 + Math.random() * 0.6));
+      const bx = boltX[0][from], by = boltY[0][from];
+      const bAngle = angle + (Math.random() < 0.5 ? -1 : 1) * (0.4 + Math.random() * 0.7);
+      const bLen = len * (0.12 + Math.random() * 0.25);
+      const slot = boltCount++;
+      zigzagInto(slot, bx, by, bx + Math.cos(bAngle) * bLen, by + Math.sin(bAngle) * bLen, bLen * 0.4, 4);
+      boltKind[slot] = 1;
+    }
+  };
+
+  const updateStorm = (time, dt, ms) => {
+    let hovering = false;
+    if (fine && pointer.active) {
+      if (!rect) rect = canvas.getBoundingClientRect(); // solo se mide cuando ha cambiado
+      const lx = (pointer.x - rect.left) * (w / rect.width);
+      const ly = (pointer.y - rect.top) * (h / rect.height);
+      hovering = Math.hypot(lx - cx, ly - cy) < radius * 1.1;
+    }
+    const was = hover;
+    hover += ((hovering ? 1 : 0) - hover) * Math.min(1, (hovering ? 0.05 : 0.02) * dt);
+    if (hovering && was < 0.05) nextStrike = Math.min(nextStrike, time + 120); // al entrar, descarga enseguida
+
+    if (!strike.on && time >= nextStrike) {
+      fire();
+      // con el ratón encima, tormenta; sin él, algún relámpago suelto
+      nextStrike = time + (hovering ? 350 + Math.random() * 750 : 2200 + Math.random() * 3300) * (perf.low ? 1.5 : 1);
+    }
+    if (strike.on) {
+      strike.life -= ms;
+      if (strike.life <= 0) {
+        if (strike.again) {
+          strike.again = false;
+          strike.total = strike.life = 110 + Math.random() * 90;
+          strike.nextZig = 0;
+          flash = Math.max(flash, 0.8);
+        } else strike.on = false;
+      }
+      // parpadeo: forma nueva cada 40–80 ms, y entre medias va siguiendo el giro
+      if (time >= strike.nextZig) {
+        rebuild();
+        strike.alpha = 0.6 + Math.random() * 0.4;
+        strike.nextZig = time + 40 + Math.random() * 40;
       }
     }
+    flash = Math.max(0, flash - 0.045 * dt);
   };
 
   // Brillo radial pre-renderizado una vez; en cada fotograma solo se copia
@@ -608,88 +644,85 @@ function initHeroGlobe() {
   glowSprite.width = glowSprite.height = 128;
   const gctx = glowSprite.getContext("2d");
   const grad = gctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-  grad.addColorStop(0, "#ffffff");       // centro blanco quemado
+  grad.addColorStop(0, "#ffffff");
   grad.addColorStop(0.15, plasmaCore);
-  grad.addColorStop(0.4, plasmaColor);   // aura cian
+  grad.addColorStop(0.45, plasmaColor);
   grad.addColorStop(1, "transparent");
   gctx.fillStyle = grad;
   gctx.fillRect(0, 0, 128, 128);
+  // punto aqua para encender los puntos que rodean la descarga
+  const litSprite = document.createElement("canvas");
+  litSprite.width = litSprite.height = 16;
+  const lctx = litSprite.getContext("2d");
+  lctx.fillStyle = plasmaCore;
+  lctx.arc(8, 8, 8, 0, Math.PI * 2);
+  lctx.fill();
 
-  const glow = (x, y, size, alpha) => {
-    ctx.globalAlpha = alpha;
-    ctx.drawImage(glowSprite, x - size, y - size, size * 2, size * 2);
-  };
-
-  // Capas de fuera a dentro: aura cian cada vez más estrecha e intensa y núcleo blanco
-  // puro. Con "lighter" se suman, así que el centro queda casi quemado y los bordes
-  // se difuminan en cian (sin shadowBlur, que es caro). [grosor, opacidad, color]
+  // Capas de fuera a dentro: aura aqua cada vez más estrecha y núcleo blanco. Con "lighter"
+  // se suman y el centro queda casi quemado (sin shadowBlur, que es caro). [grosor, opacidad, color]
   const LAYERS = [
-    [16, 0.04, plasmaColor],
-    [9, 0.08, plasmaColor],
-    [4.5, 0.22, plasmaColor],
-    [2.2, 0.6, plasmaCore],
-    [1, 1, "#ffffff"],
+    [12, 0.05, plasmaColor],
+    [6, 0.12, plasmaColor],
+    [3, 0.35, plasmaCore],
+    [1.1, 1, "#ffffff"],
   ];
 
-  const drawPlasma = () => {
+  const drawStorm = () => {
+    if (flash <= 0.01 && !strike.on) return;
     ctx.save();
     ctx.globalCompositeOperation = "lighter"; // los brillos se suman, como la luz
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
+    // detrás de la esfera se ve más apagado
+    const depthK = 0.45 + 0.55 * ((mid.depth + 1) / 2);
 
-    const flicker = 0.75 + Math.random() * 0.25;
-    glow(cx, cy, radius * 0.16, 0.55 * energy * flicker);                  // núcleo
-    if (hasContact) glow(contactX, contactY, radius * 0.1, 0.5 * energy); // punto de contacto
+    if (flash > 0.01) {
+      // la nube se ilumina por dentro: un resplandor recortado a la esfera…
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius * 1.02, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.globalAlpha = flash * 0.3 * depthK;
+      const g = radius * 0.95;
+      ctx.drawImage(glowSprite, mid.x - g, mid.y - g, g * 2, g * 2);
+      ctx.restore();
+      // …y los puntos de alrededor se encienden en aqua
+      const R = radius * 0.55, R2 = R * R;
+      for (let i = 0; i < count; i++) {
+        if (lvl[i] < 0) continue;
+        const dx = sx[i] - mid.x, dy = sy[i] - mid.y, d2 = dx * dx + dy * dy;
+        if (d2 > R2) continue;
+        const k = 1 - Math.sqrt(d2) / R;
+        ctx.globalAlpha = flash * k * k * 0.9 * levelAlpha[lvl[i]] * 1.6;
+        const r = sr[i] * 1.4 + 0.4;
+        ctx.drawImage(litSprite, sx[i] - r, sy[i] - r, r * 2, r * 2);
+      }
+    }
 
-    for (const [width, alpha, stroke] of LAYERS) {
-      ctx.lineWidth = width;
-      ctx.strokeStyle = stroke;
-      // un trazo por intensidad (principal, secundarios, ramas): 9 trazos en total
-      for (let kind = 0; kind < STRENGTHS.length; kind++) {
-        ctx.globalAlpha = alpha * STRENGTHS[kind] * energy * flicker;
-        ctx.beginPath();
-        for (let b = 0; b < boltCount; b++) {
-          if (boltKind[b] !== kind) continue;
-          const X = boltX[b], Y = boltY[b];
-          ctx.moveTo(X[0], Y[0]);
-          for (let i = 1; i < boltLen[b]; i++) ctx.lineTo(X[i], Y[i]);
+    if (strike.on) {
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      for (const [width, alpha, stroke] of LAYERS) {
+        ctx.lineWidth = width;
+        ctx.strokeStyle = stroke;
+        for (let kind = 0; kind < STRENGTHS.length; kind++) {
+          ctx.globalAlpha = alpha * STRENGTHS[kind] * strike.alpha * depthK;
+          ctx.beginPath();
+          for (let b = 0; b < boltCount; b++) {
+            if (boltKind[b] !== kind) continue;
+            const X = boltX[b], Y = boltY[b];
+            ctx.moveTo(X[0], Y[0]);
+            for (let i = 1; i < boltLen[b]; i++) ctx.lineTo(X[i], Y[i]);
+          }
+          ctx.stroke();
         }
-        ctx.stroke();
       }
     }
     ctx.restore();
   };
 
-  // Energía, punto de contacto y regeneración de rayos
-  const updatePlasma = (time, dt) => {
-    let hovering = false;
-    if (pointer.active) {
-      if (!rect) rect = canvas.getBoundingClientRect(); // solo se mide cuando ha cambiado
-      const lx = (pointer.x - rect.left) * (w / rect.width);
-      const ly = (pointer.y - rect.top) * (h / rect.height);
-      const dist = Math.hypot(lx - cx, ly - cy);
-      hovering = dist < radius * 1.2;
-      if (hovering) {
-        // Dentro del globo el rayo va al cursor; fuera, al borde en esa dirección
-        const reach = Math.min(dist, radius * 0.97) / (dist || 1);
-        contactX = cx + (lx - cx) * reach;
-        contactY = cy + (ly - cy) * reach;
-        hasContact = true;
-      }
-    }
-
-    energy += ((hovering ? 1 : 0) - energy) * Math.min(1, 0.12 * dt);
-    if (energy < 0.01) energy = 0;
-    if (energy > 0 && hasContact && time >= nextBoltAt) {
-      buildBolts();
-      nextBoltAt = time + 50 + Math.random() * 60; // parpadeo: rayos nuevos cada 50–110 ms
-    }
-  };
-
   const draw = () => {
     ctx.clearRect(0, 0, w, h);
     drawDots();
-    if (energy > 0) drawPlasma();
+    drawStorm();
   };
 
   resize();
@@ -710,7 +743,7 @@ function initHeroGlobe() {
     (e) => {
       target.y = (e.clientX / window.innerWidth - 0.5) * 0.5;
       target.x = 0.35 + (e.clientY / window.innerHeight - 0.5) * 0.3;
-      if (canPlasma && e.pointerType !== "touch") {
+      if (fine && e.pointerType !== "touch") {
         pointer.x = e.clientX;
         pointer.y = e.clientY;
         pointer.active = true;
@@ -724,12 +757,14 @@ function initHeroGlobe() {
   let rafId = 0;
   let last = 0;
   const loop = (time) => {
-    const dt = Math.min((time - last) / 16.67, 3); // normaliza a ~60 fps
+    const ms = Math.min(time - last, 50);
+    const dt = ms / 16.67; // normaliza a ~60 fps
     last = time;
-    rotY += 0.0012 * dt;
+    clock = time;
+    updateStorm(time, dt, ms);
+    rotY += (0.0012 + hover * 0.014) * dt; // con el ratón encima gira deprisa
     tilt.x += (target.x - tilt.x) * 0.04 * dt;
     tilt.y += (target.y - tilt.y) * 0.04 * dt;
-    if (canPlasma) updatePlasma(time, dt);
     draw();
     rafId = requestAnimationFrame(loop);
   };
@@ -744,7 +779,6 @@ function initHeroGlobe() {
     }
   }).observe(hero);
 }
-
 /* ---------- Fondo de Skills: red de nodos que se conectan por cercanía ---------- */
 function initSkillsNetwork() {
   const canvas = document.getElementById("skillsNetwork");
@@ -3801,6 +3835,10 @@ function initTerminal() {
   };
   term.addEventListener("close", () => lenis?.start());
   window.addEventListener("term:open", open);
+  document.querySelectorAll("[data-term-open]").forEach((b) => b.addEventListener("click", open));
+  if (matchMedia("(hover: none), (pointer: coarse)").matches) {
+    document.querySelectorAll(".hero__term-key").forEach((k) => (k.textContent = "toca aquí"));
+  }
 
   // º en teclado español, ` en el inglés (la misma tecla física); no si se está escribiendo en otro campo
   document.addEventListener("keydown", (e) => {
@@ -3835,7 +3873,11 @@ function initBatBuddy() {
   const small = () => window.innerWidth <= 760;
   const pos = { x: window.innerWidth + 60, y: window.innerHeight * 0.42 };
   const place = (rot = 0) => gsap.set(bat, { x: pos.x, y: pos.y, rotation: rot });
-  const rest = () => ({ x: window.innerWidth - (small() ? 46 : 64), y: small() ? window.innerHeight - 120 : window.innerHeight * 0.42 });
+  let side = 1; // 1 derecha, -1 izquierda: cambia cada vez que vuelve de una visita
+  const rest = () => ({
+    x: side > 0 ? window.innerWidth - (small() ? 46 : 64) : small() ? 6 : 14,
+    y: small() ? window.innerHeight - 120 : window.innerHeight * 0.42,
+  });
   place();
 
   let state = "away"; // away | resting | busy | merged
@@ -3912,6 +3954,7 @@ function initBatBuddy() {
     void title.offsetWidth;
     title.classList.add("is-echoed");
     await hold(perch, 1300);
+    side = -side;
     await goRest();
   };
 
