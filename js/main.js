@@ -105,7 +105,7 @@ const COWBOY_SVG = `
 </svg>`;
 
 function initConsoleEasterEgg() {
-  const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#ffa31a";
+  const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#6c5cff";
   const art = [
     "",
     "  ██████  ██████  ",
@@ -378,7 +378,7 @@ function initHeroGlobe() {
   // excepción deliberada solo para este efecto, para que destaque sobre el ámbar.
   const accent = toRgb(getComputedStyle(document.documentElement).getPropertyValue("--accent").trim());
   const dotColor = `rgb(${accent.join(", ")})`;
-  const plasmaRgb = toRgb("#22d3ee");
+  const plasmaRgb = toRgb("#21e6c1");
   const plasmaColor = `rgb(${plasmaRgb.join(", ")})`;
   const plasmaCore = lighten(plasmaRgb, 0.7);
 
@@ -1083,7 +1083,7 @@ function initTimeline() {
 
   // Paleta "fuego y hielo": el hilo es fuego (ámbar → oro → brasa) y la electricidad es hielo azulado.
   // main: experiencia y el hilo · spark: formación, rayos, sinapsis e impulsos · alt: proyectos · next: la PR
-  const PALETTE = { main: [255, 163, 26], spark: [80, 180, 255], alt: [255, 84, 46], next: [61, 255, 162], mid: [255, 208, 112] };
+  const PALETTE = { main: [108, 92, 255], spark: [33, 230, 193], alt: [255, 92, 200], next: [198, 208, 255], mid: [179, 168, 255] };
   const KIND_COLOR = { work: "main", edu: "spark", proj: "alt", next: "next" };
   const FLOW = [PALETTE.main, PALETTE.mid, PALETTE.alt, PALETTE.mid]; // ciclo de color a lo largo del hilo
   const rgb = ([r, g, b]) => `rgb(${r}, ${g}, ${b})`;
@@ -2224,7 +2224,7 @@ function initTimeline() {
       ctx.globalAlpha = a * 0.45;
       ctx.lineWidth = b.width * 4;
       ctx.stroke();
-      ctx.strokeStyle = "#cde8ff"; // núcleo del rayo: blanco azulado
+      ctx.strokeStyle = "#c9fff3"; // núcleo del rayo: blanco aqua
       ctx.globalAlpha = a;
       ctx.lineWidth = b.width;
       ctx.stroke();
@@ -2687,9 +2687,9 @@ function initContact() {
     x.fillRect(0, 0, n, n);
     return c;
   };
-  const ICE = [80, 180, 255], AMBER = [255, 163, 26], RED = [255, 34, 40];
+  const ICE = [33, 230, 193], AMBER = [124, 108, 255], RED = [255, 34, 40]; // AMBER es ya el violeta del acento
   // por tipo de chispa: 0 borde (oro), 1 huesos y trazos (ámbar), 2 membrana (sangre), 3 colmillos (blanco caliente)
-  const SPR = [makeSprite([255, 208, 112], 24), makeSprite(AMBER, 24), makeSprite([225, 18, 32], 24), makeSprite([255, 236, 214], 24)];
+  const SPR = [makeSprite([179, 168, 255], 24), makeSprite(AMBER, 24), makeSprite([225, 18, 32], 24), makeSprite([236, 240, 255], 24)];
   const SPR_ICE = makeSprite(ICE);
   const SPR_RED = makeSprite(RED);
   const SPR_AMBER = makeSprite(AMBER);
@@ -3122,7 +3122,7 @@ function initContact() {
       ctx.drawImage(m.red ? SPR_RED : SPR_AMBER, x - m.r * 2, y - m.r * 2, m.r * 4, m.r * 4);
     }
     ctx.globalAlpha = 1;
-    ctx.fillStyle = "rgba(255, 110, 60, 0.13)";
+    ctx.fillStyle = "rgba(140, 120, 255, 0.14)";
     for (const b of flock) tinyBat(b.x, b.y, b.s, Math.sin(time * 13 + b.ph));
 
     // telaraña: hilos finos de plata que se estiran con el aleteo
@@ -3225,7 +3225,7 @@ function initContact() {
         y += Math.sin(a) * (b.l / n);
         pts.push([x, y]);
       }
-      for (const [col, lw, al] of [[ICE, 4, 0.25], [[205, 232, 255], 1.2, 0.95]]) {
+      for (const [col, lw, al] of [[ICE, 4, 0.25], [[201, 255, 243], 1.2, 0.95]]) {
         ctx.lineWidth = lw;
         ctx.strokeStyle = rgba(col, al * b.life);
         ctx.beginPath();
