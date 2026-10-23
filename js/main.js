@@ -1133,8 +1133,8 @@ function initTimeline() {
       const a = d / (2 * Math.PI);
       const s = {
         i, x0: p.x, y0: p.y, a,
-        b: a * (mobile ? 1.25 : 1.55),           // > a → bucle; cuanto más, más grande
-        bx: mobile ? 9 : 34,                      // anchura del bucle (en móvil casi una onda)
+        b: a * (mobile ? 1.3 : 1.8),             // > a → bucle; cuanto más, más grande
+        bx: mobile ? 10 : 46,                     // anchura del bucle (en móvil casi una onda)
         dir: mobile ? 1 : i % 2 ? -1 : 1,         // en escritorio cada bucle sale hacia un lado
         lut: new Float32Array(STEPS + 1),
         start: acc,
@@ -1239,7 +1239,7 @@ function initTimeline() {
   /* ----- Polvo flotante alrededor del hilo: sube despacio y parpadea ----- */
   let dust = [];
   function seedDust() {
-    const n = mobile ? 22 : 60;
+    const n = mobile ? 30 : 95;
     const cx = points[0].x;
     dust = Array.from({ length: n }, () => ({
       x: mobile ? Math.random() * 90 : cx + (Math.random() - 0.5) * 380,
@@ -1289,26 +1289,45 @@ function initTimeline() {
   const hovered = new Set();
   const cursor = { x: 0, y: 0, active: false, power: 0 };
 
-  // La tarjeta se materializa desde el nodo: se abre (clip-path) desde el lado del hilo
+  // Texto que se "descifra": caracteres aleatorios que van fijándose de izquierda a derecha
+  const GLYPHS = "!<>-_\\/[]{}=+*^?#01";
+  const scramble = (el, frames = 28) => {
+    const final = el.dataset.text || (el.dataset.text = el.textContent);
+    let f = 0;
+    const tick = () => {
+      f++;
+      const done = (f / frames) * final.length;
+      el.textContent = [...final].map((ch, k) => (ch === " " || k < done ? ch : GLYPHS[(Math.random() * GLYPHS.length) | 0])).join("");
+      if (f < frames) requestAnimationFrame(tick);
+      else el.textContent = final;
+    };
+    tick();
+  };
+
+  // La tarjeta "arranca" como una pantalla CRT: una raya de luz que sale del lado del hilo,
+  // se abre en vertical con un fogonazo y el texto se descifra
   const reveal = (i) => {
     if (shown.has(i)) return;
     shown.add(i);
     const card = cards[i];
-    const fromNode = points[i].left ? "inset(0% 0% 0% 100% round 14px)" : "inset(0% 100% 0% 0% round 14px)";
-    gsap.fromTo(card,
-      { autoAlpha: 0, x: points[i].left ? 50 : -50, clipPath: fromNode, filter: "blur(10px) brightness(2.2) hue-rotate(60deg)" },
-      {
-        autoAlpha: 1, x: 0, clipPath: "inset(0% 0% 0% 0% round 14px)", filter: "blur(0px) brightness(1) hue-rotate(0deg)",
-        duration: 1, ease: "expo.out", clearProps: "clipPath,filter",
-      });
-    gsap.from(card.children, { autoAlpha: 0, x: points[i].left ? 16 : -16, duration: 0.6, ease: "power3.out", stagger: 0.07, delay: 0.2 });
+    const frame = card.querySelector(".checkpoint__frame");
+    const origin = points[i].left ? "100% 50%" : "0% 50%";
+    gsap.set(card, { autoAlpha: 1 });
+    gsap.timeline()
+      .fromTo(card, { scaleX: 0, scaleY: 0.012, transformOrigin: origin, filter: "brightness(4) saturate(2)" },
+        { scaleX: 1, duration: 0.32, ease: "power4.out" })
+      .to(card, { scaleY: 1, duration: 0.42, ease: "expo.out" })
+      .to(card, { filter: "brightness(1) saturate(1)", duration: 0.5, ease: "power2.out", clearProps: "filter" }, "<")
+      .from(frame.children, { autoAlpha: 0, x: points[i].left ? 14 : -14, duration: 0.45, ease: "power3.out", stagger: 0.06 }, "<0.05");
+    card.querySelectorAll(".checkpoint__title, .checkpoint__kind, .checkpoint__id").forEach((el, k) => setTimeout(() => scramble(el), 250 + k * 60));
   };
 
   const ignite = (i) => {
     const p = points[i];
     flash[i] = 1;
-    for (let k = 0; k < 90; k++) spark(p.x, p.y, 6, Math.PI * 2, 0, 1.1);
-    wave(p.x, p.y);
+    for (let k = 0; k < 160; k++) spark(p.x, p.y, 7.5, Math.PI * 2, 0, 1.25);
+    gsap.fromTo(timeline, { x: 0 }, { keyframes: { x: [0, -7, 6, -4, 3, -1, 0] }, duration: 0.4, ease: "none" }); // sacudida
+    wave(p.x, p.y, 190);
     for (let k = 0; k < 3; k++) bolt(p.x, p.y, p.edge, p.y + (Math.random() - 0.5) * 60, 22 + k * 6, 2, p.color);
     reveal(i);
   };
@@ -1362,11 +1381,23 @@ function initTimeline() {
       bolt(p.x, p.y, p.edge, p.y + (Math.random() - 0.5) * 30, 18, 1.6, p.color);
       wave(p.x, p.y, 70);
     });
-    card.addEventListener("pointerleave", () => hovered.delete(i));
+    // inclinación 3D hacia el ratón (solo con ratón de verdad)
+    const fine = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+    const ease = { duration: 0.6, ease: "power3.out" };
+    const rotX = fine && gsap.quickTo(card, "rotationX", ease);
+    const rotY = fine && gsap.quickTo(card, "rotationY", ease);
+    if (fine) gsap.set(card, { transformPerspective: 900 });
+
+    card.addEventListener("pointerleave", () => {
+      hovered.delete(i);
+      if (fine) { rotX(0); rotY(0); }
+    });
     card.addEventListener("pointermove", (e) => {
       const r = card.getBoundingClientRect();
-      card.style.setProperty("--mx", `${((e.clientX - r.left) / r.width) * 100}%`);
-      card.style.setProperty("--my", `${((e.clientY - r.top) / r.height) * 100}%`);
+      const mx = (e.clientX - r.left) / r.width, my = (e.clientY - r.top) / r.height;
+      card.style.setProperty("--mx", `${mx * 100}%`);
+      card.style.setProperty("--my", `${my * 100}%`);
+      if (fine) { rotY((mx - 0.5) * 14); rotX((0.5 - my) * 14); }
     });
   });
 
@@ -1374,15 +1405,15 @@ function initTimeline() {
   const livePoint = (s, t, out) => {
     basePoint(s, t, out);
     const env = Math.sin(Math.PI * t); // 0 en los nodos: los extremos no se mueven
-    const amp = (mobile ? 3 : 7) + agitation * (mobile ? 8 : 26);
+    const amp = (mobile ? 3 : 9) + agitation * (mobile ? 10 : 36);
     out.x += env * amp * Math.sin(time * 0.045 + t * 9 + s.i * 1.7);
     out.y += env * amp * 0.45 * Math.cos(time * 0.038 + t * 6 + s.i);
     if (cursor.power > 0.01) {
       const dx = out.x - cursor.x, dy = out.y - cursor.y;
-      const d2 = dx * dx + dy * dy, R = 150;
+      const d2 = dx * dx + dy * dy, R = 190;
       if (d2 < R * R && d2 > 1) {
         const d = Math.sqrt(d2);
-        const f = (1 - d / R) ** 2 * 46 * env * cursor.power;
+        const f = (1 - d / R) ** 2 * 72 * env * cursor.power;
         out.x += (dx / d) * f;
         out.y += (dy / d) * f;
       }
@@ -1469,11 +1500,11 @@ function initTimeline() {
 
     if (headIndex < 1) return;
     // tramo cargado: halo ancho, núcleo de color, doble hélice y un hilo blanco por dentro
-    ctx.globalAlpha = 0.13; ctx.lineWidth = 14; strokeRange(0, headIndex);
-    ctx.globalAlpha = 0.95; ctx.lineWidth = 2.6; strokeRange(0, headIndex);
+    ctx.globalAlpha = 0.16; ctx.lineWidth = 22; strokeRange(0, headIndex);
+    ctx.globalAlpha = 0.95; ctx.lineWidth = 3.4; strokeRange(0, headIndex);
     ctx.globalAlpha = 0.7;  ctx.lineWidth = 1.1;
-    strokeRange(0, headIndex, mobile ? 4 : 7, 0);
-    strokeRange(0, headIndex, mobile ? 4 : 7, 1);
+    strokeRange(0, headIndex, mobile ? 5 : 11, 0);
+    strokeRange(0, headIndex, mobile ? 5 : 11, 1);
     ctx.globalAlpha = 0.55; ctx.lineWidth = 0.8; ctx.strokeStyle = "#fff";
     ctx.beginPath();
     for (let k = 0; k <= headIndex; k++) (k ? ctx.lineTo(bx[k], by[k]) : ctx.moveTo(bx[k], by[k]));
@@ -1559,8 +1590,8 @@ function initTimeline() {
     if (charge.p > 0.001 && charge.p < 0.999) {
       const x = bx[headIndex], y = by[headIndex];
       const c = ((time * 0.02) | 0) % 3;
-      glow(SPRITES[c], x, y, 70 + Math.random() * 12 + agitation * 40, 0.9);
-      glow(SPRITES[(c + 1) % 3], x, y, 34, 0.8);
+      glow(SPRITES[c], x, y, 110 + Math.random() * 20 + agitation * 60, 0.95);
+      glow(SPRITES[(c + 1) % 3], x, y, 46, 0.9);
       glow(SPRITES[0], x, y, 14, 1);
     }
 
@@ -1626,7 +1657,7 @@ function initTimeline() {
     nextPulse -= dt;
     if (nextPulse <= 0 && head > 80) {
       pulses.push({ s: 0, v: 7 + Math.random() * 5, c: (Math.random() * 3) | 0 });
-      nextPulse = 22 + Math.random() * 34;
+      nextPulse = 12 + Math.random() * 22;
     }
     for (let k = pulses.length - 1; k >= 0; k--) {
       pulses[k].s += pulses[k].v * dt;
@@ -1638,7 +1669,7 @@ function initTimeline() {
 
     // estela de la cabeza
     if (charge.p > 0.002 && charge.p < 0.998 && headIndex >= 0) {
-      let n = (0.35 + agitation * 3) * dt;
+      let n = (0.6 + agitation * 4) * dt;
       while (n > 0) { if (Math.random() < n) spark(bx[headIndex], by[headIndex] - PAD, 2.2, 2, -Math.PI / 2); n--; }
     }
 

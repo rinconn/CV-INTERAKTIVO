@@ -1879,7 +1879,7 @@ ul {
   position: relative;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  column-gap: 10rem;
+  column-gap: 12rem;
 }
 
 .checkpoint[data-kind="edu"] {
@@ -1895,7 +1895,7 @@ ul {
 }
 
 .checkpoint + .checkpoint {
-  margin-top: 6rem;
+  margin-top: 5rem;
 }
 
 .checkpoint:nth-child(odd) .checkpoint__card {
@@ -2012,166 +2012,261 @@ ul {
   }
 }
 
-/* ---------- Tarjeta ---------- */
+/* ---------- Tarjeta: panel de "checkpoint" de videojuego ----------
+   Esquinas cortadas en diagonal, corchetes de mira en las otras dos, líneas de barrido (CRT),
+   cabecera en monoespaciada y un haz que la recorre de arriba abajo cuando está encendida.
+   La tarjeta pinta el borde (su fondo asoma 1 px alrededor del marco) y el marco el contenido */
 .checkpoint__card {
+  --cut: 22px;
   --mx: 50%;
   --my: 50%;
+  --shape: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
   position: relative;
-  padding: 1.35rem 1.5rem 1.45rem;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015));
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  transition: border-color 0.5s, box-shadow 0.6s;
-}
-
-/* Borde neón que da vueltas a la tarjeta encendida */
-@property --spin {
-  syntax: "<angle>";
-  inherits: false;
-  initial-value: 0deg;
-}
-
-.checkpoint__card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
   padding: 1px;
-  border-radius: inherit;
-  background: conic-gradient(from var(--spin), transparent 0 45%, var(--tl-cyan) 62%, var(--tl-pink) 75%, var(--tl-red) 86%, transparent 90%);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
-  opacity: 0;
-  transition: opacity 0.6s;
-  pointer-events: none;
-}
-
-.checkpoint.is-active .checkpoint__card::before {
-  opacity: 1;
-  animation: card-spin 5s linear infinite;
-}
-
-@keyframes card-spin {
-  to {
-    --spin: 360deg;
-  }
-}
-
-/* Foco que sigue al ratón, del color del nodo */
-.checkpoint__card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(420px circle at var(--mx) var(--my), color-mix(in srgb, var(--c) 14%, transparent), transparent 45%);
-  opacity: 0;
-  transition: opacity 0.4s;
-  pointer-events: none;
-}
-
-.checkpoint__card:hover::after {
-  opacity: 1;
+  clip-path: var(--shape);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04) 40%, rgba(255, 255, 255, 0.12));
+  transition: background 0.5s;
+  transform-style: preserve-3d;
+  will-change: transform;
 }
 
 .checkpoint.is-active .checkpoint__card {
-  border-color: color-mix(in srgb, var(--c) 16%, transparent);
-  box-shadow: 0 24px 60px -34px color-mix(in srgb, var(--c) 60%, transparent);
+  background: linear-gradient(135deg, var(--c), color-mix(in srgb, var(--c) 10%, transparent) 38%, transparent 60%, color-mix(in srgb, var(--c) 70%, transparent));
 }
 
-.checkpoint__card > * {
+.checkpoint__frame {
+  position: relative;
+  padding: 1.25rem 1.5rem 1.4rem;
+  clip-path: var(--shape);
+  background:
+    radial-gradient(380px circle at var(--mx) var(--my), color-mix(in srgb, var(--c) 16%, transparent), transparent 55%),
+    radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--c) 12%, transparent), transparent 55%),
+    #0b0c12;
+  overflow: hidden;
+}
+
+/* Líneas de barrido + el haz que baja */
+.checkpoint__frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, transparent, color-mix(in srgb, var(--c) 22%, transparent) 50%, transparent) 0 -80px / 100% 80px no-repeat,
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.028) 0 1px, transparent 1px 3px);
+  pointer-events: none;
+}
+
+.checkpoint.is-active .checkpoint__frame::before {
+  animation: card-scan 3.2s linear infinite;
+}
+
+@keyframes card-scan {
+  to {
+    background-position: 0 calc(100% + 80px), 0 0;
+  }
+}
+
+/* Corchetes de mira en las esquinas que no están cortadas */
+.checkpoint__frame::after {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  --b: color-mix(in srgb, var(--c) 85%, #fff);
+  background:
+    linear-gradient(var(--b), var(--b)) top left / 16px 2px,
+    linear-gradient(var(--b), var(--b)) top left / 2px 16px,
+    linear-gradient(var(--b), var(--b)) bottom right / 16px 2px,
+    linear-gradient(var(--b), var(--b)) bottom right / 2px 16px;
+  background-repeat: no-repeat;
+  opacity: 0.35;
+  transition: opacity 0.4s, inset 0.4s var(--ease);
+  pointer-events: none;
+}
+
+.checkpoint.is-active .checkpoint__frame::after {
+  opacity: 1;
+}
+
+.checkpoint__card:hover .checkpoint__frame::after {
+  inset: 4px;
+}
+
+.checkpoint__frame > * {
   position: relative;
   z-index: 1;
 }
 
-.checkpoint__meta {
+/* Cabecera: identificador, tipo y fecha en monoespaciada */
+.checkpoint__head {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.4rem 0.75rem;
-  margin-bottom: 0.45rem;
-  font-size: 0.78rem;
+  gap: 0.35rem 0.8rem;
+  margin-bottom: 0.7rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--text-muted);
 }
 
-.checkpoint__kind {
-  padding: 0.12rem 0.6rem;
-  border-radius: 999px;
-  font-size: 0.68rem;
+.checkpoint__id {
+  padding: 0.05rem 0.4rem;
+  color: #07080b;
+  background: var(--c);
   font-weight: 600;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
+}
+
+.checkpoint__kind {
   color: var(--c);
-  background: color-mix(in srgb, var(--c) 13%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 35%, transparent);
+}
+
+.checkpoint__kind::before {
+  content: "// ";
+  opacity: 0.6;
+}
+
+.checkpoint__head time {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+/* "En curso": punto rojo de grabación que parpadea */
+.checkpoint__live {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text);
+}
+
+.checkpoint__live::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--tl-red);
+  box-shadow: 0 0 8px var(--tl-red);
+  animation: live-blink 1.1s steps(1) infinite;
+}
+
+@keyframes live-blink {
+  50% {
+    opacity: 0.15;
+  }
 }
 
 .checkpoint__title {
   font-family: var(--font-display);
-  font-size: clamp(1.25rem, 2.2vw, 1.5rem);
+  font-size: clamp(1.35rem, 2.4vw, 1.75rem);
   font-weight: 600;
-  line-height: 1.2;
+  line-height: 1.15;
+  letter-spacing: 0.005em;
 }
 
-/* el título se tiñe del degradado neón al pasar el ratón */
+/* Al pasar el ratón el título "se descuadra" en cian y rosa (aberración cromática) */
 .checkpoint__card:hover .checkpoint__title {
-  background: var(--tl-neon);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  animation: title-rgb 0.9s steps(2) infinite;
+}
+
+@keyframes title-rgb {
+  0% {
+    text-shadow: -2px 0 var(--tl-cyan), 2px 0 var(--tl-pink);
+  }
+
+  50% {
+    text-shadow: 2px 1px var(--tl-cyan), -2px -1px var(--tl-pink);
+  }
 }
 
 .checkpoint__place {
-  margin-top: 0.2rem;
+  margin-top: 0.3rem;
   font-size: 0.9rem;
   color: var(--c);
 }
 
 .checkpoint__desc {
-  margin-top: 0.7rem;
+  margin-top: 0.65rem;
   font-size: 0.93rem;
   color: var(--text-muted);
-}
-
-.checkpoint__desc a,
-.checkpoint__link {
-  color: var(--text);
-  border-bottom: 1px solid var(--c);
-  transition: color 0.2s;
-}
-
-.checkpoint__desc a:hover,
-.checkpoint__link:hover {
-  color: var(--c);
-}
-
-.checkpoint__link {
-  display: inline-block;
-  margin-top: 0.9rem;
-  font-size: 0.88rem;
 }
 
 .checkpoint__tags {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
-  margin-top: 0.9rem;
+  margin-top: 0.95rem;
 }
 
 .checkpoint__tags li {
-  padding: 0.18rem 0.6rem;
-  font-size: 0.75rem;
-  border-radius: 6px;
+  padding: 0.2rem 0.55rem 0.2rem 0.5rem;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.7rem;
   color: var(--text);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border);
-  transition: border-color 0.2s, color 0.2s, translate 0.2s, box-shadow 0.2s;
+  background: rgba(255, 255, 255, 0.04);
+  border-left: 2px solid var(--c);
+  transition: background 0.2s, color 0.2s, translate 0.2s, box-shadow 0.2s;
 }
 
 .checkpoint__tags li:hover {
-  color: var(--c);
-  border-color: color-mix(in srgb, var(--c) 55%, transparent);
-  box-shadow: 0 0 12px -2px color-mix(in srgb, var(--c) 50%, transparent);
+  color: #07080b;
+  background: var(--c);
+  box-shadow: 0 0 16px -2px var(--c);
   translate: 0 -2px;
+}
+
+.checkpoint__link,
+.checkpoint__cta {
+  display: inline-block;
+  margin-top: 1rem;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  color: var(--c);
+  transition: color 0.2s, letter-spacing 0.3s var(--ease);
+}
+
+.checkpoint__link:hover,
+.checkpoint__cta:hover {
+  color: var(--text);
+  letter-spacing: 0.12em;
+}
+
+.checkpoint__cta {
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--c);
+  color: var(--text);
+  background: color-mix(in srgb, var(--c) 14%, transparent);
+}
+
+.checkpoint__caret {
+  animation: live-blink 0.9s steps(1) infinite;
+}
+
+/* Barra de carga de lo que está en curso */
+.checkpoint__loading {
+  height: 4px;
+  margin-top: 1.1rem;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.checkpoint__loading span {
+  display: block;
+  width: 62%;
+  height: 100%;
+  background: repeating-linear-gradient(-45deg, var(--c) 0 6px, color-mix(in srgb, var(--c) 45%, transparent) 6px 12px);
+  background-size: 34px 100%;
+  box-shadow: 0 0 10px var(--c);
+  animation: loading-stripes 0.8s linear infinite;
+}
+
+@keyframes loading-stripes {
+  to {
+    background-position: 34px 0;
+  }
 }
 
 /* Con animaciones, las tarjetas esperan a que les llegue la carga (las muestra JS) */
@@ -2197,5 +2292,13 @@ ul {
 
   .checkpoint:nth-child(n) .checkpoint__card {
     grid-column: 1;
+  }
+
+  .checkpoint__card {
+    --cut: 16px;
+  }
+
+  .checkpoint__frame {
+    padding: 1.1rem 1.15rem 1.2rem;
   }
 }
