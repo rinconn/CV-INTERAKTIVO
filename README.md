@@ -88,5 +88,25 @@ Después abre http://localhost:8000.
 
 ---
 
-<img width="1857" height="902" alt="Captura de pantalla 2026-09-24 115945" src="https://github.com/user-attachments/assets/30dac109-ede9-4eb3-b23a-6a1752775856" />
-<img width="1835" height="627" alt="Captura de pantalla 2026-09-24 124150" src="https://github.com/user-attachments/assets/ca90dec4-6abc-4ce0-b4af-b61b1c2badb7" />
+## Capturas
+
+### Inicio
+![Inicio](docs/capturas/01-inicio.png)
+
+### Skills
+![Skills](docs/capturas/02-skills.png)
+
+### Proyectos
+![Proyectos](docs/capturas/03-proyectos.png)
+
+### Trayectoria
+![Trayectoria](docs/capturas/04-trayectoria.png)
+
+### Contacto
+![Contacto](docs/capturas/05-contacto.png)
+
+### Paleta de comandos (`Ctrl + K`)
+![Paleta de comandos](docs/capturas/06-paleta.png)
+
+### Terminal
+![Terminal](docs/capturas/07-terminal.png)
