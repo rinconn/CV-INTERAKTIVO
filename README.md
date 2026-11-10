@@ -138,9 +138,3 @@ Después abre http://localhost:8000.
 [![GitHub](https://img.shields.io/badge/GitHub-rinconn-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/rinconn)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Enrique%20Rinc%C3%B3n-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/enrique-rincón-mateeva-264845363)
 [![Email](https://img.shields.io/badge/Email-rincon.enriquemv@gmail.com-EA4335?style=for-the-badge&logo=gmail&logoColor=white)](mailto:rincon.enriquemv@gmail.com)
-
-<div align="center">
-
-Hecho con 💜 por **Enrique Rincón** 🦇
-
-</div>
